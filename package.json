@@ -1,0 +1,25 @@
+{
+  "name": "create-project",
+  "version": "2.0.0",
+  "description": "Scaffold an OpenCode-first project with agent context, automatic memory, and a vendored skill set (context-gather, architect, remember, review, recover, imprint, distill).",
+  "type": "module",
+  "bin": {
+    "create-project": "./bin/create-project.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "skills",
+    "plugin",
+    "vendor"
+  ],
+  "scripts": {
+    "start": "node bin/create-project.js"
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

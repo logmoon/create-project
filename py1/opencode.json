@@ -1,0 +1,52 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "context/project-overview.md",
+    "context/architecture.md",
+    "context/build-plan.md",
+    "context/progress-tracker.md",
+    "context/code-standards.md",
+    "context/library-docs.md",
+    "context/ui-tokens.md",
+    "context/ui-rules.md",
+    "context/ui-registry.md",
+    "memory.md"
+  ],
+  "permission": {
+    "bash": "ask",
+    "edit": "allow"
+  },
+  "compaction": {
+    "auto": true,
+    "prune": false,
+    "reserved": 10000
+  },
+  "lsp": true,
+  "agent": {
+    "reviewer": {
+      "description": "Reviews a just-built feature against the plan, architecture, and code standards. Read-only — reports issues, never fixes them.",
+      "mode": "subagent",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    }
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".git/**",
+      ".opencode/skills/**"
+    ]
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    }
+  }
+}
