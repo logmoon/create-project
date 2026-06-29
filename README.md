@@ -4,6 +4,10 @@ Scaffolds an OpenCode-first project with structured agent context, automatic mem
 
 It doesn't pick a framework or write boilerplate code. It sets up the *operating system* an AI agent works inside of: what it knows, what it's allowed to assume, how it remembers, and what it has to check before calling something done.
 
+## Shoutout
+
+Huge shoutout to [JS Mastery](https://jsmastery.com/), this project is a more refined and focused take on the system he lays out in [How Senior Engineers Actually Build with AI in 2026](https://www.youtube.com/watch?v=9dKA2hq4vf0&t=78s) (but basically the same idea and philosophy). The skills in this repo are forked from his [JS Mastery Skills](https://github.com/JavaScript-Mastery-Pro/skills), edited and updated to match this specific workflow.
+
 ## Install
 
 ```bash
@@ -93,6 +97,8 @@ Skills live in `skills/` in this repo and get copied into every scaffolded proje
 - **UI** — adds `ui-tokens.md`, `ui-rules.md`, `ui-registry.md`, and the `/imprint` skill.
 - **Context7** — adds the Context7 MCP server for fast, indexed library docs. Complements OpenCode's built-in `@scout` subagent (which reads live upstream source) rather than replacing it — the agent's told to try Context7 first, fall back to `@scout`.
 - **git** — `git init` + initial commit.
+
+---
 
 ## Why this exists
 

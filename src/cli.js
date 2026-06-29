@@ -47,7 +47,6 @@ export async function run() {
   let selectedSkills = [...CORE_SKILLS, ...OPTIONAL_SKILLS];
   if (!hasUI) {
     selectedSkills = selectedSkills.filter(s => s !== 'imprint');
-    log(pc.dim('\n  (Skipping /imprint — no UI)'));
   }
 
   // ── 4. Scaffold ─────────────────────────────────────────────────────────────
@@ -73,7 +72,6 @@ export async function run() {
 
   writeFileSync(join(projectDir, 'opencode.json'), generateOpencodeJson(hasUI, useContext7));
   done('opencode.json');
-  if (useContext7) log(pc.dim('    (Context7 MCP configured)'));
 
   // ── 5. Memory hook plugin ───────────────────────────────────────────────────
   installMemoryPlugin(projectDir);
@@ -106,12 +104,9 @@ export async function run() {
   divider();
   log(`\n${pc.green(pc.bold('  Done.'))} ${projectName}/ is ready.\n`);
 
-  log(pc.bold('  Next steps:\n'));
-  log(`  ${pc.cyan('1.')} cd ${projectName} && opencode`);
-  log(`  ${pc.cyan('2.')} Just start talking. context-gather runs automatically since every context/ file is still a stub.`);
-  log(`  ${pc.cyan('3.')} Once context is real, say what you want to build — /architect kicks off planning.\n`);
-
-  log(pc.dim('  No copy-paste setup step anymore — the old CONTEXT_CHAT.md flow is now the context-gather skill, run by the agent itself.'));
+  log(pc.bold('  Next step:\n'));
+  log(`  ${pc.cyan('→')} cd ${projectName} && opencode`);
+  log(`  ${pc.dim('  context-gather runs automatically. Then just say what to build.')}`);
   console.log('');
   divider();
 
