@@ -20,7 +20,7 @@ Ask, honestly, about this session:
 - Did a debugging path take more than a couple of attempts to find, in a way that would help next time if written down?
 - Did the developer have to explain a workflow step, convention, or preference that isn't covered by an existing skill or `code-standards.md`?
 - Did a pattern get used more than once in this project that isn't documented anywhere?
-- Would an existing skill (`architect`, `remember`, `review`, `recover`, `imprint`, `context-gather`) have done this better if it had one more instruction in it?
+- Would an existing skill (`architect`, `remember`, `review`, `recover`, `imprint`, `ui-ux-frontend`, `context-gather`) have done this better if it had one more instruction in it?
 
 If none of these apply, say so and stop:
 

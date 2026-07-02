@@ -44,9 +44,11 @@ export async function run() {
   const initGit     = await askYesNo(lines, rl, 'Initialise a git repo?', true);
 
   // ── 3. Which skills ─────────────────────────────────────────────────────────
+  // OPTIONAL_SKILLS ('imprint', 'ui-ux-frontend') are both UI-only — a
+  // non-UI project has no UI patterns to capture or design decisions to make.
   let selectedSkills = [...CORE_SKILLS, ...OPTIONAL_SKILLS];
   if (!hasUI) {
-    selectedSkills = selectedSkills.filter(s => s !== 'imprint');
+    selectedSkills = selectedSkills.filter(s => !OPTIONAL_SKILLS.includes(s));
   }
 
   // ── 4. Scaffold ─────────────────────────────────────────────────────────────

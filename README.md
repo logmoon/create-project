@@ -41,7 +41,7 @@ my-app/
     ui-tokens.md / ui-rules.md / ui-registry.md   (UI projects only)
   .opencode/
     plugin/memory-hook.js     ← auto-restore at session start
-    skills/                   ← context-gather, architect, remember, review, recover, imprint, distill
+    skills/                   ← context-gather, architect, remember, review, recover, imprint, ui-ux-frontend, distill
 ```
 
 Every `context/*.md` file starts as a stub. Nothing gets built on stub content — see Phase 0 below.
@@ -62,7 +62,7 @@ The first time you open the project, every `context/*.md` file is still a placeh
 
 4. **Feature branch (opt-in).** If the project has a git repo, the agent asks whether you want a feature branch (e.g. `feat/tenant-onboarding`). Say yes or no — either way, building starts after your answer.
 
-5. **Build.** The agent builds the feature.
+5. **Build.** The agent builds the feature. For any UI pattern not already in `ui-registry.md`, it checks `ui-ux-frontend` first (UI projects only) instead of improvising.
 
 6. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window and no permission to edit, write, or run commands. It can only report issues, never fix them. It reports findings and **stops**. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
 
@@ -88,13 +88,14 @@ Across a full feature cycle, you make four calls: approve the `/architect` plan,
 | `/review` | After every feature | Dispatched to `@reviewer` — reports, never fixes |
 | `/recover` | When something breaks | Diagnose the failure type before attempting a fix |
 | `/imprint` | After confirmed UI work (UI projects only) | Capture visual patterns so future components match |
+| `ui-ux-frontend` | context-gather Step 6, and before new UI patterns (UI projects only) | Reference-only: distinctiveness guidance + sourced correctness checklist |
 | `distill` | After `/remember save` | Propose a new or improved skill, gated on approval |
 
-Skills live in `skills/` in this repo and get copied into every scaffolded project's `.opencode/skills/`. They're a fork of [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills), edited to match this workflow — edit them here, not upstream.
+Skills live in `skills/` in this repo and get copied into every scaffolded project's `.opencode/skills/`. Most are a fork of [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills), edited to match this workflow — edit them here, not upstream. `ui-ux-frontend` is original to this repo: a trimmed, dependency-free reference (no CLI, no database, no persistence of its own) drawing on WCAG/HIG/Material Design guidance and general UI/UX distinctiveness principles — deliberately kept out of the business of owning state, since `ui-tokens.md` / `ui-rules.md` / `ui-registry.md` already do that job.
 
 ## Scaffold options
 
-- **UI** — adds `ui-tokens.md`, `ui-rules.md`, `ui-registry.md`, and the `/imprint` skill.
+- **UI** — adds `ui-tokens.md`, `ui-rules.md`, `ui-registry.md`, and the `imprint` and `ui-ux-frontend` skills.
 - **Context7** — adds the Context7 MCP server for fast, indexed library docs. Complements OpenCode's built-in `@scout` subagent (which reads live upstream source) rather than replacing it — the agent's told to try Context7 first, fall back to `@scout`.
 - **git** — `git init` + initial commit.
 

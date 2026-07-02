@@ -1,7 +1,7 @@
 {
   "name": "create-project",
   "version": "2.0.0",
-  "description": "Scaffold an OpenCode-first project with agent context, automatic memory, and a vendored skill set (context-gather, architect, remember, review, recover, imprint, distill).",
+  "description": "Scaffold an OpenCode-first project with agent context, automatic memory, and a vendored skill set (context-gather, architect, remember, review, recover, imprint, ui-ux-frontend, distill).",
   "type": "module",
   "bin": {
     "create-project": "./bin/create-project.js"

@@ -75,6 +75,8 @@ For every library named in the stack table, give project-specific usage patterns
 
 ## Step 6 — UI Tokens & Rules (UI projects only)
 
+If the `ui-ux-frontend` skill is installed, read it before proposing anything below — its distinctiveness guidance and correctness checklist exist specifically to make this step's proposals specific and defensible instead of generic ("a modern dark theme").
+
 `ui-tokens.md`: every color a real hex value, every size a real pixel value — no "dark," no "TBD" here, make the decision. Typography table for every text level used. Component tokens for cards, buttons, inputs.
 
 `ui-rules.md`: Layout, Navigation, Cards, Typography Hierarchy, Buttons, Forms, Empty States, and at least 5 project-specific **Do Nots**.

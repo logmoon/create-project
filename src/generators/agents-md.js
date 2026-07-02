@@ -2,7 +2,7 @@
 // not user-toggleable; they're load-bearing for the rest of the workflow.
 export const CORE_SKILLS = ['context-gather', 'architect', 'remember', 'review', 'recover', 'distill'];
 // Optional, conditional on project shape.
-export const OPTIONAL_SKILLS = ['imprint'];
+export const OPTIONAL_SKILLS = ['imprint', 'ui-ux-frontend'];
 
 export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7) {
   const has = (s) => selectedSkills.includes(s);
@@ -14,6 +14,7 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
     has('review')    ? '| `/review` | After building any feature | Dispatched to `@reviewer` — a read-only subagent that verifies correctness, not just that it works |' : null,
     has('recover')   ? '| `/recover` | When something breaks | Diagnose failure mode before attempting fixes |' : null,
     has('imprint')   ? '| `/imprint` | After the user confirms a UI feature is done | Capture visual patterns to ui-registry.md |' : null,
+    has('ui-ux-frontend') ? '| `ui-ux-frontend` | During context-gather Step 6, and before building any UI pattern not yet in ui-registry.md | Reference-only: distinctiveness guidance + sourced correctness checklist. Never overrides ui-tokens.md/ui-rules.md/ui-registry.md |' : null,
     has('distill')   ? '| `distill` | Offered after `/remember save` | Proposes a new/updated skill from this session — never saves without approval |' : null,
   ].filter(Boolean).join('\n');
 
@@ -40,7 +41,7 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
   const buildingSteps = [];
   let buildNum = 1;
 
-  buildingSteps.push(`${buildNum++}. Build the feature`);
+  buildingSteps.push(`${buildNum++}. Build the feature${hasUI && has('ui-ux-frontend') ? '. For any UI pattern not already described in ui-registry.md, consult the ui-ux-frontend skill first — otherwise match what ui-registry.md already records' : ''}`);
   if (has('review')) {
     buildingSteps.push(`${buildNum++}. Run \`/review\` — dispatch \`@reviewer\` (read-only by config, can't edit/write/bash) with the plan, the relevant context files, and the diff. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find.`);
     buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for and re-run \`/review\` as needed. Repeat until the user explicitly says they are satisfied.`);
