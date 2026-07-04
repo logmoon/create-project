@@ -67,6 +67,8 @@ Stop when every decision that would change the implementation has been resolved.
 
 A good senior engineer knows when the plan is solid enough to start. They do not keep asking questions for the sake of being thorough.
 
+Even when nothing needs aligning — a trivial, obvious feature — this skill still runs. Skip straight to "Blueprint ready" and Step 5's formatted plan; never skip the skill itself and write an implementation plan outside its format.
+
 When you are done, say:
 
 ```
