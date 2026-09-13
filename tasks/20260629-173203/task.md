@@ -8,6 +8,8 @@ tags:
 # Issues
 
 ## Current
+- Optional API key for context7
+- Projects change while you work on them and currently I feel that once the context files are created you're kind of locked into following them, I should make it something of a rule/ability for the agent to alter context files if needed in a session. Maybe as part of the closing up after all tests.
 
 ## Resolved
 - Maybe add git stuff into the workflow

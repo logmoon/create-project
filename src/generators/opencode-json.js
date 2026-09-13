@@ -17,9 +17,11 @@ export function generateOpencodeJson(hasUI, useContext7) {
     // Point opencode at all the context files so they're always in scope
     instructions: contextFiles,
 
-    // Sensible permission defaults — ask before destructive ops, allow reads freely
+    // Permission defaults — let the agent run. The reviewer subagent below is
+    // where destructive-by-design lockdown actually lives; gating every bash
+    // call here just taxes the common case to guard against the rare one.
     permission: {
-      bash: 'ask',
+      bash: 'allow',
       edit: 'allow',
     },
 

@@ -30,10 +30,10 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
   // One definition of "gate" used once here, then referenced by name in the
   // Phase 1/2 steps below instead of being re-explained at each occurrence.
   const gateRows = [
-    has('architect') ? '| **Architect Gate** | Before any code is written for a feature | The developer has explicitly approved the plan produced by `/architect`\'s own Step 5 format — not any other implementation summary the agent writes itself |' : null,
+    has('architect') ? '| **Architect Gate** | Before any code is written for a feature | The developer has explicitly approved the plan produced by `/architect`\'s own Step 5 (a full plan for real features, one paragraph for trivial changes) — not any other implementation summary the agent writes itself |' : null,
     has('review')    ? '| **Review Gate** | After a feature is built, before it\'s considered done | `/review` has been dispatched to `@reviewer`, findings relayed, and the developer has said the feature is satisfactory |' : null,
     '| **Close-out Gate** | After the developer confirms satisfaction | The developer has explicitly confirmed the close-out prompt — commit, imprint, tracker update, `/remember save`, distill proposal all happen only after this |',
-    '| **Session-Scope Gate** | Whenever a new feature is requested | The current feature has passed the Close-out Gate, or the developer has explicitly said to override the one-feature-per-session rule |',
+    '| **Session-Scope Gate** | Whenever a new feature is requested | The current feature has passed the Close-out Gate, or the developer\'s said to keep going anyway |',
   ].filter(Boolean).join('\n');
 
   const sessionGatesSection = `## Session Gates
@@ -49,9 +49,9 @@ matter how confident the plan seems or how simple the feature looks.
 2. The developer's reply directly answers that question. "Yep" to "should I begin there?"
    confirms the *feature*, not the plan — the agent still has to ask the gate question separately.
 
-**If asked to skip ahead of a gate** — e.g. told to start a new feature before the current one has
-closed out — state which gate hasn't been passed and ask whether to close out first or override
-this once. Never comply silently.
+**If asked to jump ahead of a gate** — e.g. a new feature before this one's closed out — just say
+which gate is still open and check: close out first, or keep going anyway? Either answer is fine,
+just don't switch modes without flagging it.
 
 **A gate cannot be passed in advance.** Approval-sounding language given before the gate's artifact
 exists — "go for it," "sounds good, do it" before an architect plan or review report has actually
@@ -69,7 +69,7 @@ a plan-shaped answer produced outside the named skill's own procedure.`;
   let planNum = 1;
   planningSteps.push(`${planNum++}. The memory hook has injected a start-of-session note at the top of this session. If it contains a restore summary, confirm it with the user before proceeding. If it says "Fresh session. Ready.", no checkpoint is needed. Either way, run \`/remember restore\` if you need the full cross-checked picture or if a prior session ended abnormally.`);
   if (has('architect')) {
-    planningSteps.push(`${planNum++}. **Architect Gate** — run \`/architect\`, in full, even when the feature looks trivial and no real decisions surface. The skill still runs through its own steps and still ends in "Blueprint ready" + its formatted plan — never substitute an ad hoc numbered list for that format.`);
+    planningSteps.push(`${planNum++}. **Architect Gate** — run \`/architect\`. It sizes the change itself and scales its own steps accordingly — trivial changes get a one-paragraph pass, real features get the full walkthrough. Either way it ends in "Blueprint ready" + its Step 5 plan — never substitute an ad hoc summary written outside the skill.`);
   } else {
     planningSteps.push(`${planNum++}. Think through the feature. Present the approach and wait for explicit approval before proceeding`);
   }
@@ -110,7 +110,7 @@ Before planning: if any \`context/*.md\` file is still a stub (first session), r
 
 **Scope discipline.** Do not pre-plan or schedule future features beyond what the user is asking about right now. The build plan and progress tracker describe the project's scope — they are reference material, not a todo list for the current session. Only work on what the user explicitly asks for.
 
-**Session-Scope Gate.** One feature per session. If a new feature is requested before the current one has passed the Close-out Gate, say so and ask whether to close out first or override.
+**Session-Scope Gate.** One feature per session by default. If another comes up before this one's closed out, flag it and check whether to close out first or just keep going.
 
 ${planningSteps.join('\n')}
 
@@ -132,6 +132,19 @@ After building, run \`/review\` and **stop** — report findings, never fix. Wai
   return `# AGENTS.md — ${projectName}
 
 This file is read first by any AI coding agent. It defines the skills available in this project and how to use them.
+
+---
+
+## Working Mode
+
+Operate like a sharp senior engineer, not a cautious one. Once you have enough signal to act, act
+— don't circle for more confidence than the decision actually needs, and don't narrate reasoning
+that wouldn't change what you do next.
+
+Context and tokens are a budget, not a scratchpad. Read what a step actually needs and skip what
+you already know from earlier in the session; keep explanations as tight as the situation allows
+without dropping anything the developer needs to make a call. Depth belongs where it earns its
+cost — the gates below already tell you where that is.
 
 ---
 

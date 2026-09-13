@@ -17,7 +17,20 @@ Before saying anything, take stock of what already exists:
 
 Do not ask about anything already clearly answered by existing documentation. A good senior engineer does their homework before the meeting.
 
+**Size it.** Based on what you just read, classify the change before going further:
+
+- **Trivial** — a one-line fix, a copy/config/wording change, no new behavior, nothing a second
+  person would need to weigh in on. Skip straight to Step 5 and write a single short paragraph in
+  place of the full plan — no language check, no decision walkthrough.
+- **Feature** — introduces new behavior, has more than one reasonable way to build it, or touches
+  existing architecture. Continue to Step 2.
+
+If you're genuinely unsure which one it is, treat it as a Feature. A wrong guess toward "trivial"
+is the expensive kind of wrong.
+
 ## Step 2 — Align on Language
+
+_(Feature-sized changes only — Trivial changes exited at Step 1.)_
 
 Every project has its own vocabulary. Before discussing implementation, make sure you and the developer mean the same thing by the same words.
 
@@ -38,6 +51,8 @@ Correct anything that is off before we go further.
 Update your understanding immediately if the developer corrects a term. Do not continue until the language is aligned.
 
 ## Step 3 — Think Through the Decisions Together
+
+_(Feature-sized changes only.)_
 
 Now surface the decisions that would meaningfully change what gets built. Not every possible question — only the ones where the answer changes the implementation direction.
 
@@ -63,11 +78,11 @@ Work through decisions in order of impact. The decision that affects the most do
 
 ## Step 4 — Know When You Are Done
 
+_(Feature-sized changes only.)_
+
 Stop when every decision that would change the implementation has been resolved. Not when every possible question is answered. When what matters is settled.
 
 A good senior engineer knows when the plan is solid enough to start. They do not keep asking questions for the sake of being thorough.
-
-Even when nothing needs aligning — a trivial, obvious feature — this skill still runs. Skip straight to "Blueprint ready" and Step 5's formatted plan; never skip the skill itself and write an implementation plan outside its format.
 
 When you are done, say:
 
@@ -78,6 +93,8 @@ Blueprint ready.
 ## Step 5 — Produce the Implementation Plan
 
 After saying "Blueprint ready", write a clear implementation plan based on everything discussed.
+For a Trivial change (per Step 1), this is one short paragraph — what's changing and why — not
+the full template below.
 
 ```
 ## Implementation Plan — [Feature Name]
