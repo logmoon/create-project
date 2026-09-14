@@ -5,45 +5,29 @@
 export const STUBS = {
   'memory.md': `# Memory
 
-_Written by \`/remember save\` at the end of a session. A compact form of this is auto-injected at
-the start of the next one by \`.opencode/plugin/memory-hook.js\`; read in full by \`/remember restore\`.
-For durable project status — what's done, what's pending — see \`context/progress-tracker.md\`.
-This file only covers what that one doesn't: exactly where a resumed session should pick up._
+_This file is written by \`/remember save\` at the end of every session, auto-injected at the start of the next one by \`.opencode/plugin/memory-hook.js\`, and read in full by \`/remember restore\`._
 
 ---
 
-## Active Feature
+## Last Session Summary
 
 <!-- Auto-filled by /remember save -->
 
-Branch: <!-- current git branch, if any -->
+## Active Feature
 
-## Session Phase
+<!-- What was being worked on -->
 
-<!-- planning / building / reviewing / closing -->
+## Key Decisions
 
-## Next Action
-
-<!-- The exact next step to take when resuming -->
-
-## Decisions & Problems Not Yet Elsewhere
-
-<!-- Only what isn't already captured in a context file or spec -->
+<!-- Decisions made that affect the whole codebase -->
 
 ## Open Questions
 
-<!-- Anything unresolved that needs addressing -->
-`,
+<!-- Things that need resolving before continuing -->
 
-  'memory-log.md': `# Memory Log
+## Next Action
 
-_Compact history of past sessions, appended by \`/remember save\`. Not auto-injected at session
-start — read this on request, or via \`/remember restore\` when the auto-restore summary isn't
-enough. Capped at the last 20 entries; oldest entries drop off as new ones are added._
-
----
-
-<!-- Newest entry at the top. One entry per session, a few lines each — not a transcript. -->
+<!-- Exact next step to take when resuming -->
 `,
 
   'progress-tracker.md': `# Progress Tracker
@@ -250,14 +234,6 @@ Implementation rules and conventions for the entire project. The AI agent must f
 ## Error Handling
 
 <!-- How errors are caught, logged, surfaced -->
-
----
-
-## Testing
-
-<!-- Framework, how tests are run, what must have coverage — or state plainly
-     that this project skips automated tests, so /test knows not to reach for
-     itself unprompted -->
 
 ---
 

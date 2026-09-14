@@ -78,7 +78,6 @@ Check:
 - Edge cases — empty states, loading states, missing data — are these handled?
 - Console errors — any errors or warnings in the browser or terminal?
 - Obvious bugs — anything that would clearly break for a real user?
-- Tests — if `context/code-standards.md` establishes this project uses tests, were they written for this change, and do they pass? Report the gap if `/test` was skipped, without fixing it yourself.
 
 ---
 

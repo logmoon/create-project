@@ -20,7 +20,7 @@ Ask, honestly, about this session:
 - Did a debugging path take more than a couple of attempts to find, in a way that would help next time if written down?
 - Did the developer have to explain a workflow step, convention, or preference that isn't covered by an existing skill or `code-standards.md`?
 - Did a pattern get used more than once in this project that isn't documented anywhere?
-- Would an existing skill (`architect`, `remember`, `review`, `debug`, `test`, `document`, `imprint`, `ui-ux-frontend`, `context-gather`) have done this better if it had one more instruction in it?
+- Would an existing skill (`architect`, `remember`, `review`, `recover`, `imprint`, `ui-ux-frontend`, `context-gather`) have done this better if it had one more instruction in it?
 
 If none of these apply, say so and stop:
 
@@ -59,5 +59,3 @@ Save this? (yes / no / edit first)
 ## Keep Skills Honest
 
 A new skill needs the same frontmatter discipline as the rest of this project's skills: `name` and a `description` specific enough to trigger reliably and that doesn't overlap with what an existing skill already claims. If two skills would fire on the same situation, that's a conflict — flag it in the proposal instead of silently creating one anyway.
-
-Read `docs/conventions.md` before writing the diff. A proposal that pads a skill with encouragement instead of instruction, or duplicates something a context file already says, is the kind of thing that convention doc exists to catch before it ships.
