@@ -60,8 +60,10 @@ export async function run() {
   mkdirSync(join(projectDir, 'context'));
 
   writeStub(writeFileSync, join(projectDir, 'memory.md'), STUBS['memory.md']);
+  writeStub(writeFileSync, join(projectDir, 'memory-log.md'), STUBS['memory-log.md']);
   writeStub(writeFileSync, join(projectDir, 'context', 'progress-tracker.md'), STUBS['progress-tracker.md']);
   done('memory.md');
+  done('memory-log.md');
   done('context/progress-tracker.md');
 
   if (hasUI) {

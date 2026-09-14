@@ -1,6 +1,6 @@
 ---
 name: remember
-description: Save what matters at the end of a session so the next session picks up exactly where you left off. Or restore context at the start of a new session so nothing is lost between them.
+description: Save what matters at the end of a session so the next session picks up exactly where you left off, in memory.md — plus a compact rolling log of past sessions in memory-log.md. Or restore context at the start of a new session so nothing is lost between them.
 ---
 
 AI has no memory between sessions. Every new session starts blank. This skill fixes that.
@@ -9,13 +9,22 @@ Run it at the end of a session to save. Run it at the start of a new session to 
 
 ## Auto-Restore Note
 
-This project's `.opencode/plugin/memory-hook.js` injects `memory.md` and `context/progress-tracker.md` at the start of every session, and instructs the agent to open with a restore-checkpoint: summarise what was restored and wait for the developer to confirm before doing anything else. That checkpoint is the same thing `/remember restore` does manually below — it now happens automatically, every session, without the developer needing to type the command.
+This project's `.opencode/plugin/memory-hook.js` injects a compact restore summary at the start of
+every session — `memory.md` plus just the "In Progress" and "Up Next" sections of
+`context/progress-tracker.md`, not its full history — and instructs the agent to open with a
+restore-checkpoint: summarise what was restored and wait for the developer to confirm before doing
+anything else. That checkpoint is the same thing `/remember restore` does manually below — it now
+happens automatically, every session, without the developer needing to type the command. The hook
+also runs a deterministic check comparing the branch recorded in `memory.md` against the branch the
+repo is actually on, and flags it if they don't match — no LLM judgment involved, just a heads-up.
 
-`/remember restore` still exists for when the auto-restore checkpoint isn't enough — a session ended abnormally, the summary looks incomplete, or the developer wants the full cross-checked read including the other context files listed in Step 2 below.
+`/remember restore` still exists for when the auto-restore checkpoint isn't enough — a session
+ended abnormally, the summary looks incomplete, or the developer wants the full cross-checked read
+including `memory-log.md` and the other context files listed in Step 2 below.
 
 ## Security Boundary
 
-This skill must never persist secrets. If any sensitive value appears in the conversation or context, do not copy it to `memory.md`.
+This skill must never persist secrets. If any sensitive value appears in the conversation or context, do not copy it to `memory.md` or `memory-log.md`.
 
 Sensitive data includes (non-exhaustive):
 
@@ -49,44 +58,63 @@ If the developer just runs `/remember` without specifying — ask them which one
 
 When the developer runs `/remember save`:
 
-### What to capture
+### Two files, two jobs
 
-Review the current conversation to extract only what a developer would genuinely need to continue this work in a completely fresh context. Do not include sensitive data such as credentials, API keys, or tokens in the saved memory. Not a transcript. Not a summary of everything that happened. The essential state.
+`memory.md` is the live continuity file — it only holds what a resumed session needs and can't get
+from `context/progress-tracker.md`: the exact next step and anything not yet written down anywhere
+durable. It gets **overwritten** each save; it is never a history.
 
-Think like someone handing off a project to a colleague who is equally skilled but knows nothing about what happened today. What would they need to know to continue without losing anything?
+`memory-log.md` is the history. A short, append-only digest — one entry per session — for when
+someone actually needs to know what happened three sessions ago. It is not auto-injected, so it
+costs nothing on the common path.
 
-Capture:
+Do not put the same fact in both. If it's durable project status, it belongs in
+`progress-tracker.md`, not either memory file.
 
-**What was built** — specific files created or modified, features completed, components added. Be precise. Not "built the auth flow" — "created app/(auth)/login/page.tsx, app/(auth)/callback/page.tsx, and middleware.ts. OAuth with Google and GitHub working end to end."
+### What goes in memory.md
 
-**Decisions made** — choices that would be hard to reverse or that future work depends on. Not implementation details — architectural choices. "Chose to use server-side data fetching over client-side — avoids loading states and keeps sensitive logic off the client."
+Think like someone handing off to a colleague who is equally skilled but knows nothing about today. What do they need to not start cold?
 
-**Problems solved** — any issue that took time to figure out. So the next session does not solve the same problem twice. "Third party auth callback requires a trailing slash in the redirect URL — fixed in the callback handler."
+**Active Feature** — what's being worked on, and the current git branch (run `git branch --show-current` if this is a git repo; write `(no git repo)` if not).
 
-**Current state** — exactly where things stand right now. What works, what is partial, what is known to be broken.
+**Session Phase** — planning / building / reviewing / closing.
 
-**What comes next** — the very next thing that needs to happen. Specific enough that the next session can start immediately without figuring out where to begin.
+**Next Action** — the very next concrete step. Specific enough to start immediately.
 
-**Open questions** — anything unresolved that the next session needs to address.
+**Decisions & Problems Not Yet Elsewhere** — only things not already captured in a context file or spec. If it's in `architecture.md` or `code-standards.md` already, leave it out here.
 
-### What not to capture
+**Open Questions** — anything unresolved the next session needs to address.
+
+### What goes in memory-log.md instead
+
+The things a colleague wouldn't need to *resume* work, but that are worth not losing entirely — what got built, what broke and how it got fixed, anything genuinely surprising. Write one compact entry:
+
+```markdown
+### [date] — [feature/session name]
+
+[2-4 lines: what was built or fixed, and the outcome. Not a transcript — the kind of thing worth remembering happened, not how it happened.]
+```
+
+Prepend it above the most recent existing entry. If the log now has more than 20 entries, drop the oldest ones until it's back to 20.
+
+### What not to capture (either file)
 
 - Implementation details that are visible in the code
-- Decisions already documented in context files
+- Decisions already documented in a context file
 - Anything that can be inferred by reading the codebase
 - The process of how something was built — only what was built and what was decided
 - Any secrets or credential-like values (tokens, keys, passwords, cookies, auth headers, connection strings)
 
 ### Safety check before writing
 
-Before writing `memory.md`, run a final pass over the content to ensure no sensitive value is present.
+Before writing either file, run a final pass over the content to ensure no sensitive value is present.
 
 - If sensitive content is found, remove or redact it before writing.
 - Keep only the minimal non-sensitive context needed to continue next session.
 
 ### Where to save
 
-Write the memory to `memory.md` in the project root. This file always contains only the most recent session state.
+Write to `memory.md` in the project root; append to `memory-log.md` alongside it.
 
 If `memory.md` already exists, show the developer a brief summary of what is currently saved and ask for confirmation before overwriting:
 
@@ -101,7 +129,7 @@ Overwrite with this session's memory? (yes / no)
 
 Step 2 — After the developer responds:
 
-- If they say **yes**, write the new `memory.md`.
+- If they say **yes**, write the new `memory.md` and append the `memory-log.md` entry (trimming to 20 if needed).
 - If they say **no**, do not write anything and reply:
 
 ```
@@ -111,41 +139,37 @@ No changes made. memory.md is unchanged.
 ### Format
 
 ```markdown
-# Memory — [Feature or Session Name]
+# Memory
 
-Last updated: [date and time]
+## Active Feature
 
-## What was built
+[What's being worked on]
 
-[Specific files, components, features completed this session]
+Branch: [current git branch, or "(no git repo)"]
 
-## Decisions made
+## Session Phase
 
-[Architectural and implementation decisions that future work depends on]
+[planning / building / reviewing / closing]
 
-## Problems solved
-
-[Issues resolved this session — so they are not solved again]
-
-## Current state
-
-[Exactly where things stand — what works, what is partial, what is broken]
-
-## Next session starts with
+## Next Action
 
 [The very first thing to do in the next session — specific and actionable]
 
-## Open questions
+## Decisions & Problems Not Yet Elsewhere
+
+[Only what isn't already captured in a context file]
+
+## Open Questions
 
 [Anything unresolved that needs addressing]
 ```
 
-After writing the file, confirm to the developer:
+After writing both files, confirm to the developer:
 
 ```
-Memory saved to memory.md.
+Memory saved to memory.md. Logged to memory-log.md.
 
-Next session: the auto-restore hook will surface this automatically. Run /remember restore any time you want the full picture confirmed explicitly.
+Next session: the auto-restore hook will surface this automatically. Run /remember restore any time you want the full picture, including history.
 ```
 
 Then check whether anything from this session is worth turning into a skill — see `distill`. If a pattern repeated, a debugging path was non-obvious, or a workflow step had to be explained that isn't covered by an existing skill, say so and offer to run `/distill`. Do not run it automatically — propose it, then wait.
@@ -175,7 +199,7 @@ To save memory at the end of a session, run /remember save.
 
 ### Step 2 — Read everything available
 
-Read `memory.md` first. Then check for these specific context files if they exist and read only those:
+Read `memory.md` and `memory-log.md` first, then check for these specific context files if they exist and read only those:
 
 - `CLAUDE.md`, `.claude/context.md` — Claude Code
 - `.github/copilot-instructions.md` — GitHub Copilot
@@ -196,9 +220,9 @@ Do not start building. Do not assume the developer wants to continue immediately
 ```
 Memory restored. Here is where we are:
 
-**Last session:** [what was built]
-**Current state:** [what works right now]
-**Decisions in place:** [key decisions that are locked]
+**Active feature:** [what's being worked on, and branch]
+**Session phase:** [planning / building / reviewing / closing]
+**Decisions in place:** [key decisions not yet in a context file]
 **Next up:** [what the next session should start with]
 
 Is this correct? Say yes to continue, or correct anything
