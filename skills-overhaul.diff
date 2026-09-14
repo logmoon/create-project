@@ -1,0 +1,1487 @@
+diff --git a/README.md b/README.md
+index ac73f7c..3b7d884 100644
+--- a/README.md
++++ b/README.md
+@@ -30,18 +30,20 @@ You'll be asked three questions (UI? Context7? git?). After that, just start tal
+ my-app/
+   AGENTS.md                  ← read by the agent first, every session
+   opencode.json               ← config: instructions, permissions, the reviewer subagent
+-  memory.md                   ← last session's state (empty until first /remember save)
++  memory.md                   ← current session-continuity state (empty until first /remember save)
++  memory-log.md                ← compact rolling log of past sessions (last 20)
+   context/
+     project-overview.md       ← what this is, who it's for, scope
+     architecture.md           ← stack, structure, invariants
+     build-plan.md             ← numbered, ordered features
+     progress-tracker.md       ← live checklist — keep it current as you build
+-    code-standards.md         ← naming, error handling, conventions
++    code-standards.md         ← naming, error handling, conventions, testing
+     library-docs.md           ← per-library usage patterns
+     ui-tokens.md / ui-rules.md / ui-registry.md   (UI projects only)
+   .opencode/
+     plugin/memory-hook.js     ← auto-restore at session start
+-    skills/                   ← context-gather, architect, remember, review, recover, imprint, ui-ux-frontend, distill
++    conventions.md            ← skill-writing style guide, read by distill
++    skills/                   ← context-gather, architect, remember, review, debug, test, document, imprint, ui-ux-frontend, distill
+ ```
+ 
+ Every `context/*.md` file starts as a stub. Nothing gets built on stub content — see Phase 0 below.
+@@ -54,7 +56,7 @@ The first time you open the project, every `context/*.md` file is still a placeh
+ 
+ ### Every session after that
+ 
+-1. **Auto-restore.** The memory hook injects the last session's `memory.md` + `progress-tracker.md` before your message lands. The agent's first reply summarises what was restored and asks you to confirm before doing anything else.
++1. **Auto-restore.** The memory hook injects a compact restore summary — `memory.md` plus just the active sections of `progress-tracker.md` — before your message lands, and flags it if the branch you're on doesn't match what memory expected. The agent's first reply summarises what was restored and asks you to confirm before doing anything else.
+ 
+ 2. **You say what to build.** The agent works on exactly what you ask for — it doesn't pre-plan features from the build plan or treat the progress tracker as a todo list.
+ 
+@@ -64,34 +66,40 @@ The first time you open the project, every `context/*.md` file is still a placeh
+ 
+ 5. **Build.** The agent builds the feature. For any UI pattern not already in `ui-registry.md`, it checks `ui-ux-frontend` first (UI projects only) instead of improvising.
+ 
+-6. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window and no permission to edit, write, or run commands. It can only report issues, never fix them. It reports findings and **stops**. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
++6. **`/test` (if this project uses tests).** Once `code-standards.md` establishes that, the agent reaches for `/test` on its own before review — no confirmation needed, it's a skill, not a gate.
+ 
+-7. **You test.** You try the feature. Report issues, request fixes, re-run `/review` as needed. The agent fixes only what you ask for. Repeat until you're satisfied.
++7. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window and no permission to edit, write, or run commands. It can only report issues, never fix them. It reports findings and **stops**. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
+ 
+-8. **Close-out prompt.** When you say "good" / "done" / "I'm satisfied", the agent asks: *"Ready to close out? I'll commit the work, run /imprint, /remember save, and propose distill."* You confirm before anything happens.
++8. **You test.** You try the feature. Report issues, request fixes, re-run `/review` as needed. The agent fixes only what you ask for. Repeat until you're satisfied.
+ 
+-9. **Close-out.** The agent runs in order: git commit (with merge if on a feature branch), `/imprint` (if UI was built), updates `progress-tracker.md`, runs `/remember save` (asking before overwriting if memory exists), and proposes `distill` if anything from the session is worth turning into a skill.
++9. **Close-out prompt.** When you say "good" / "done" / "I'm satisfied", the agent asks: *"Ready to close out? I'll commit the work, run /imprint, /remember save, draft a /document entry if useful, and propose distill."* You confirm before anything happens.
+ 
+-10. **Next session.** The agent tells you the session is complete and suggests what to say when you start a fresh one: *"Session complete. Start a fresh session and say '…' to continue."*
++10. **Close-out.** The agent runs in order: git commit (with merge if on a feature branch), `/imprint` (if UI was built), updates `progress-tracker.md`, runs `/remember save` (asking before overwriting if memory exists, and appending a compact entry to `memory-log.md`), and proposes `distill` if anything from the session is worth turning into a skill.
++
++11. **Next session.** The agent tells you the session is complete and suggests what to say when you start a fresh one: *"Session complete. Start a fresh session and say '…' to continue."*
+ 
+ ### What's manual vs. automatic
+ 
+-Across a full feature cycle, you make four calls: approve the `/architect` plan, confirm the build works, confirm the close-out prompt, and approve or decline any `distill` proposal. Everything else — restore checkpoint, feature branch question, review dispatch, git commit, imprint, tracker updates, memory save — the agent runs on its own because it's written into `AGENTS.md` as required protocol, not left to memory or good intentions.
++Across a full feature cycle, you make four calls: approve the `/architect` plan, confirm the build works, confirm the close-out prompt, and approve or decline any `distill` proposal. Those four are gates — checkpoints that always stop for an explicit answer. Everything else, including reaching for `/test`, `/debug`, or `/document` mid-session, is a skill: the agent uses it when the work calls for it, without asking permission first, because using a skill is never how a gate gets passed and nothing about running one skips past a checkpoint.
+ 
+ ## The skills
+ 
+ | Skill | Runs | Job |
+ |---|---|---|
+ | `context-gather` | First session, automatically | Fills context files before anything else can run |
+-| `/architect` | Before building a feature | Plan before code, get explicit approval |
+-| `/remember save` / `restore` | End / start of session | Compress and restore session state |
++| `/architect` | Before building a feature | Plan before code, get explicit approval — sizes itself to trivial vs. real changes |
++| `/remember save` / `restore` | End / start of session | Compress session state into `memory.md`, log a digest to `memory-log.md`, restore both |
+ | `/review` | After every feature | Dispatched to `@reviewer` — reports, never fixes |
+-| `/recover` | When something breaks | Diagnose the failure type before attempting a fix |
++| `/debug` | When something breaks | Diagnose the failure type before attempting a fix, reproduce before theorizing, hand confirmed fixes to `/test` |
++| `/test` | Automatically once tests are established (`code-standards.md`), before review; automatically after `/debug`; anytime on request | Write and run tests for the change just made — a skill, not a gate |
++| `/document` | Offered at close-out; anytime on request | Draft a changelog entry, PR description, or release note from what actually happened |
+ | `/imprint` | After confirmed UI work (UI projects only) | Capture visual patterns so future components match |
+ | `ui-ux-frontend` | context-gather Step 6, and before new UI patterns (UI projects only) | Reference-only: distinctiveness guidance + sourced correctness checklist |
+ | `distill` | After `/remember save` | Propose a new or improved skill, gated on approval |
+ 
+-Skills live in `skills/` in this repo and get copied into every scaffolded project's `.opencode/skills/`. Most are a fork of [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills), edited to match this workflow — edit them here, not upstream. `ui-ux-frontend` is original to this repo: a trimmed, dependency-free reference (no CLI, no database, no persistence of its own) drawing on WCAG/HIG/Material Design guidance and general UI/UX distinctiveness principles — deliberately kept out of the business of owning state, since `ui-tokens.md` / `ui-rules.md` / `ui-registry.md` already do that job.
++Skills live in `skills/` in this repo and get copied into every scaffolded project's `.opencode/skills/`. Most are a fork of [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills), edited to match this workflow — edit them here, not upstream. `ui-ux-frontend`, `debug`, `test`, and `document` are original to this repo. `ui-ux-frontend` is a trimmed, dependency-free reference (no CLI, no database, no persistence of its own) drawing on WCAG/HIG/Material Design guidance and general UI/UX distinctiveness principles — deliberately kept out of the business of owning state, since `ui-tokens.md` / `ui-rules.md` / `ui-registry.md` already do that job.
++
++Writing or editing a skill? See `docs/conventions.md` for the house style, and run `npm run check` — an advisory lint for frontmatter, line-count budget, and filler phrases.
+ 
+ ## Scaffold options
+ 
+diff --git a/docs/conventions.md b/docs/conventions.md
+new file mode 100644
+index 0000000..e39e0cb
+--- /dev/null
++++ b/docs/conventions.md
+@@ -0,0 +1,41 @@
++# Skill-Writing Conventions
++
++A skill file loads in full whenever it's triggered. Every line in it is a cost paid on every one
++of those runs — so every line needs to earn that cost. This is the bar for writing one, and for
++reviewing a `distill` proposal against.
++
++## A line must change what the agent does
++
++Cut encouragement the model already does by default: "be careful," "be thorough," "make sure to."
++These read like advice, not instruction — they don't change what happens differently on the page.
++If a sentence could be deleted without the agent behaving any differently, delete it.
++
++## Reasoning belongs in the commit, not the skill
++
++The *why* behind a design choice in this repo belongs in a commit message, not a paragraph in the
++skill body. Skills describe what to do now, not the history of how the instructions got here.
++
++## Don't duplicate a context file
++
++If something is true project knowledge — a fact, a decision, a convention — it belongs in a
++`context/*.md` file, not repeated in a skill. Skills are procedures; context files are facts. A
++skill can *reference* a context file's section; it shouldn't restate it.
++
++## Completion messages: headline, next, heads-up if real, pointer
++
++When a skill reports back, lead with the headline, state the next action, mention a blocker only
++if one actually exists, and point at the file with full detail rather than inlining it. Skip the
++checklist-of-yeses pattern (`Semantic HTML: correct`, `Keyboard nav: correct`) — a list of things
++that are fine is noise, not signal. Only report what's notable.
++
++## Frontmatter discipline
++
++Every skill needs `name` and a `description` specific enough to trigger reliably and that doesn't
++overlap with what another skill already claims. If a new skill's description could just as easily
++describe an existing one, that's a conflict to resolve, not two skills to ship.
++
++## Check it
++
++If this repo has a skill-lint script — check `package.json` for a `check` script — run it before
++finalizing a new or edited skill. It's advisory, the same way the gates in `AGENTS.md` are for the
++agent: it tells you where you're off, it doesn't fail your build for you.
+diff --git a/package.json b/package.json
+index 4b858e1..34d7493 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "create-project",
+   "version": "2.0.0",
+-  "description": "Scaffold an OpenCode-first project with agent context, automatic memory, and a vendored skill set (context-gather, architect, remember, review, recover, imprint, ui-ux-frontend, distill).",
++  "description": "Scaffold an OpenCode-first project with agent context, automatic memory, and a vendored skill set (context-gather, architect, remember, review, debug, test, document, imprint, ui-ux-frontend, distill).",
+   "type": "module",
+   "bin": {
+     "create-project": "./bin/create-project.js"
+@@ -11,10 +11,13 @@
+     "src",
+     "skills",
+     "plugin",
++    "scripts",
++    "docs",
+     "vendor"
+   ],
+   "scripts": {
+-    "start": "node bin/create-project.js"
++    "start": "node bin/create-project.js",
++    "check": "node scripts/check-skills.mjs"
+   },
+   "dependencies": {
+     "picocolors": "^1.1.1"
+diff --git a/plugin/memory-hook.js b/plugin/memory-hook.js
+index 5b8b959..dc0ea6d 100644
+--- a/plugin/memory-hook.js
++++ b/plugin/memory-hook.js
+@@ -2,13 +2,23 @@
+ //
+ // Injects a short, deterministic summary of memory.md + context/progress-tracker.md
+ // into the first user message of every new session. No LLM call, no vector DB —
+-// just reads two files off disk so the agent never starts a session blind.
++// just reads files (and, for the branch check, git) off disk so the agent never
++// starts a session blind.
+ //
+ // /remember restore still exists for the full picture + explicit confirmation.
+ // This hook only covers the "don't start from zero" gap.
++//
++// Primary-session only: OpenCode fires chat.message for subagent-run turns too
++// (e.g. @reviewer gets its own turn with input.agent === "reviewer"). Without
++// the check below, a subagent's first turn got this restore checkpoint injected
++// and tried to stop and ask "does this look right?" — but a subagent has no
++// developer to ask, so it just stalled instead of doing its actual job. Fixed
++// by reading opencode.json once for every agent whose mode is "subagent" and
++// skipping injection for any of them.
+ 
+ import { readFile } from "node:fs/promises"
+ import { join } from "node:path"
++import { execSync } from "node:child_process"
+ 
+ const injected = new Set()
+ 
+@@ -21,6 +31,7 @@ async function readIfExists(path) {
+ }
+ 
+ function trimTo(text, maxChars) {
++  if (!text) return text
+   if (text.length <= maxChars) return text
+   return text.slice(0, maxChars) + "\n…(truncated — run /remember restore for the full picture)"
+ }
+@@ -33,11 +44,68 @@ function isStubTracker(text) {
+   return text.includes("🔲") && !text.includes("✅")
+ }
+ 
++// Pulls one section's body out of a markdown file by its "## Heading" so the
++// auto-restore block carries only what's actively relevant (In Progress, Up
++// Next) instead of the whole file — including the "Done" log, which only
++// grows and is rarely needed just to resume work.
++function extractSection(text, heading) {
++  if (!text) return null
++  const re = new RegExp(`##\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, "i")
++  const match = text.match(re)
++  if (!match) return null
++  const body = match[1].replace(/^-{3,}\s*$/gm, "").trim()
++  return body || null
++}
++
++function extractExpectedBranch(memoryText) {
++  if (!memoryText) return null
++  const match = memoryText.match(/Branch:\s*(\S+)/i)
++  return match && match[1] ? match[1] : null
++}
++
++function currentGitBranch(directory) {
++  try {
++    const out = execSync("git branch --show-current", {
++      cwd: directory,
++      stdio: ["ignore", "pipe", "ignore"],
++    }).toString().trim()
++    return out || null
++  } catch {
++    return null
++  }
++}
++
++let subagentNamesCache = null
++
++async function getSubagentNames(directory) {
++  if (subagentNamesCache) return subagentNamesCache
++  const names = new Set()
++  try {
++    const raw = await readFile(join(directory, "opencode.json"), "utf-8")
++    const config = JSON.parse(raw)
++    for (const [name, def] of Object.entries(config.agent || {})) {
++      if (def && def.mode === "subagent") names.add(name)
++    }
++  } catch {
++    // opencode.json missing or unparsable — fall back to the one subagent
++    // this project ships by default so the fix degrades safely, not silently.
++    names.add("reviewer")
++  }
++  subagentNamesCache = names
++  return names
++}
++
+ export const MemoryHook = async ({ directory }) => {
++  const subagentNames = await getSubagentNames(directory)
++
+   return {
+     "chat.message": async (input, { message, parts }) => {
+       try {
+         if (!Array.isArray(parts)) return
++
++        // Skip entirely for subagent turns — see header comment.
++        if (input.agent && subagentNames.has(input.agent)) return
++
+         const sessionID = input.sessionID
+         if (!sessionID || injected.has(sessionID)) return
+         injected.add(sessionID)
+@@ -63,16 +131,36 @@ export const MemoryHook = async ({ directory }) => {
+           return
+         }
+ 
++        const trackerInProgress = trimTo(extractSection(tracker, "In Progress"), 800)
++        const trackerUpNext = trimTo(extractSection(tracker, "Up Next"), 800)
++        const trackerBlocked = trimTo(extractSection(tracker, "Blocked"), 400)
++
++        // Deterministic drift check — no LLM judgment, just compare the branch
++        // memory.md says it was saved on against the branch we're actually on.
++        const expectedBranch = extractExpectedBranch(memory)
++        const actualBranch = currentGitBranch(directory)
++        const driftNote =
++          expectedBranch && actualBranch && expectedBranch !== actualBranch
++            ? `**Heads up:** memory.md was saved on branch \`${expectedBranch}\`, but this repo is currently on \`${actualBranch}\`. Might be a normal branch switch, or it might mean this memory is stale — worth a quick check before assuming it's current.`
++            : null
++
++        const trackerBlockParts = [
++          trackerInProgress ? `### progress-tracker.md — In Progress\n${trackerInProgress}` : null,
++          trackerUpNext ? `### progress-tracker.md — Up Next\n${trackerUpNext}` : null,
++          trackerBlocked ? `### progress-tracker.md — Blocked\n${trackerBlocked}` : null,
++        ].filter(Boolean).join("\n\n");
++
+         const block = [
+           "<!-- auto-injected by memory-hook.js — not written by the user -->",
+           "## Session auto-restore",
+           "",
+-          memory ? `### memory.md\n${trimTo(memory, 3000)}` : "_No memory.md yet — first session._",
++          memory ? `### memory.md\n${trimTo(memory, 2000)}` : "_No memory.md yet — first session._",
+           "",
+-          tracker ? `### context/progress-tracker.md\n${trimTo(tracker, 2000)}` : "",
++          trackerBlockParts,
++          driftNote ? `\n${driftNote}` : "",
+           "",
+           memory || tracker
+-            ? "Before doing anything else this session: summarise what was restored (last session, current state, decisions in place, next up) in your first reply and ask the user to confirm it's correct. Do not start building until they confirm. This is the start-of-session checkpoint — do it every time, not just when something seems off. Run `/remember restore` only if this summary feels incomplete or a prior session ended abnormally."
++            ? "Before doing anything else this session: summarise what was restored (last session, current state, decisions in place, next up) in your first reply and ask the user to confirm it's correct. Do not start building until they confirm. This is the start-of-session checkpoint — do it every time, not just when something seems off. Run `/remember restore` only if this summary feels incomplete, a prior session ended abnormally, or you want the fuller history in memory-log.md."
+             : "",
+         ].filter(Boolean).join("\n")
+ 
+diff --git a/scripts/check-skills.mjs b/scripts/check-skills.mjs
+new file mode 100644
+index 0000000..0c58634
+--- /dev/null
++++ b/scripts/check-skills.mjs
+@@ -0,0 +1,101 @@
++#!/usr/bin/env node
++// Advisory lint for skills/*/SKILL.md — see docs/conventions.md for why these
++// checks exist. This never fails the build; it just tells you where a skill
++// might be paying tokens it doesn't need to, the same spirit as the gates in
++// AGENTS.md being checkpoints, not walls. Run: npm run check
++
++import { readdirSync, readFileSync, statSync } from 'node:fs';
++import { join, dirname } from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const SKILLS_DIR = join(__dirname, '..', 'skills');
++
++// Warn past this, don't fail — a budget to notice, not a wall to hit.
++const LINE_BUDGET = 350;
++
++// Phrases that read as advice rather than instruction — they rarely change
++// what the agent does differently, so they're usually just cost.
++const FILLER_PHRASES = [
++  'be careful',
++  'be thorough',
++  'make sure to',
++  "it's important to note",
++  'it is important to note',
++  'in order to',
++];
++
++function checkFrontmatter(text) {
++  const match = text.match(/^---\n([\s\S]*?)\n---/);
++  if (!match) return { ok: false, reason: 'missing --- frontmatter block' };
++  const body = match[1];
++  if (!/^name:\s*\S+/m.test(body)) return { ok: false, reason: 'missing `name` field' };
++  if (!/^description:\s*\S+/m.test(body)) return { ok: false, reason: 'missing `description` field' };
++  return { ok: true };
++}
++
++function findFillerPhrases(text) {
++  const lower = text.toLowerCase();
++  return FILLER_PHRASES.filter((phrase) => lower.includes(phrase));
++}
++
++function main() {
++  const skillDirs = readdirSync(SKILLS_DIR).filter((name) =>
++    statSync(join(SKILLS_DIR, name)).isDirectory()
++  );
++
++  let hasError = false;
++  const notices = [];
++
++  for (const skill of skillDirs) {
++    const path = join(SKILLS_DIR, skill, 'SKILL.md');
++    let text;
++    try {
++      text = readFileSync(path, 'utf-8');
++    } catch {
++      notices.push({ level: 'error', skill, message: 'SKILL.md not found' });
++      hasError = true;
++      continue;
++    }
++
++    const frontmatter = checkFrontmatter(text);
++    if (!frontmatter.ok) {
++      notices.push({ level: 'error', skill, message: frontmatter.reason });
++      hasError = true;
++    }
++
++    const lineCount = text.split('\n').length;
++    if (lineCount > LINE_BUDGET) {
++      notices.push({
++        level: 'warn',
++        skill,
++        message: `${lineCount} lines — over the ${LINE_BUDGET}-line budget, worth a trim pass`,
++      });
++    }
++
++    const filler = findFillerPhrases(text);
++    if (filler.length) {
++      notices.push({
++        level: 'warn',
++        skill,
++        message: `filler phrase(s) found: ${filler.map((p) => `"${p}"`).join(', ')}`,
++      });
++    }
++  }
++
++  if (notices.length === 0) {
++    console.log(`✓ ${skillDirs.length} skill(s) checked, nothing to flag.`);
++    return;
++  }
++
++  for (const { level, skill, message } of notices) {
++    const marker = level === 'error' ? '✗' : '!';
++    console.log(`  ${marker} ${skill}: ${message}`);
++  }
++  console.log(`\n${notices.length} notice(s) across ${skillDirs.length} skill(s).`);
++
++  // Only frontmatter problems fail the run — everything else is advisory.
++  if (hasError) process.exit(1);
++}
++
++main();
+diff --git a/skills/context-gather/SKILL.md b/skills/context-gather/SKILL.md
+index aa5597c..eca9322 100644
+--- a/skills/context-gather/SKILL.md
++++ b/skills/context-gather/SKILL.md
+@@ -43,7 +43,7 @@ You are a context architect for this one phase only. Your job is to extract what
+ | `context/ui-rules.md` | UI only | Layout, component rules, do-nots |
+ | `context/progress-tracker.md` | Yes | Checklist generated from build-plan.md |
+ 
+-`context/ui-registry.md` and `memory.md` stay empty shells — `imprint` and `remember` fill those during the build, not here.
++`context/ui-registry.md`, `memory.md`, and `memory-log.md` stay empty shells — `imprint` and `remember` fill those during the build, not here.
+ 
+ ## Step 0 — Read First, Ask Later
+ 
+@@ -67,7 +67,7 @@ Fill `build-plan.md` — the file that determines what gets built, in what order
+ 
+ ## Step 4 — Code Standards
+ 
+-Fill `code-standards.md` with rules specific to this stack, not a generic style guide: Language (type system rules — strict mode, no `any`, etc., or the equivalent for the actual language), Framework Conventions, File/Folder Naming, Component/Module Structure, Error Handling (the actual pattern, not "use try/catch"), Environment Variables, Dependencies (the approved list, matching the stack table). Keep the pre-filled Engineering Mindset rules; add project-specific ones if relevant.
++Fill `code-standards.md` with rules specific to this stack, not a generic style guide: Language (type system rules — strict mode, no `any`, etc., or the equivalent for the actual language), Framework Conventions, File/Folder Naming, Component/Module Structure, Error Handling (the actual pattern, not "use try/catch"), Testing (framework, how tests are run, what must have coverage — or state plainly that this project skips automated tests, so `/test` knows not to reach for itself unprompted), Environment Variables, Dependencies (the approved list, matching the stack table). Keep the pre-filled Engineering Mindset rules; add project-specific ones if relevant.
+ 
+ ## Step 5 — Library Docs
+ 
+@@ -92,7 +92,7 @@ Mechanical: convert every feature in `build-plan.md` into a checkbox under its p
+ - **project-overview.md** — every section has real content; Features In/Out of Scope are both flat and specific; Success Criteria are verifiable.
+ - **architecture.md** — stack table covers every technology in use; system boundaries state what each layer must never do; at least 6 invariants, specific to this project.
+ - **build-plan.md** — sequential numbering; every feature has UI + Logic (or a note why one doesn't apply) and an exit criterion; nothing oversized for one session.
+-- **code-standards.md** — matches the actual language and framework in use, not a generic template.
++- **code-standards.md** — matches the actual language and framework in use, not a generic template; Testing section states a real decision (framework + convention, or an explicit "no automated tests"), not left as `TBD`.
+ - **library-docs.md** — every stack-table library has a section, each with a real example.
+ - **ui-tokens.md / ui-rules.md** (if UI) — every color is a hex value; Do Nots has 5+ real, specific entries.
+ 
+diff --git a/skills/debug/SKILL.md b/skills/debug/SKILL.md
+new file mode 100644
+index 0000000..932c054
+--- /dev/null
++++ b/skills/debug/SKILL.md
+@@ -0,0 +1,215 @@
++---
++name: debug
++description: When something goes wrong during a build, diagnose what type of failure it is before deciding how to respond. Targeted fix, hard reset, or full rethink — the right response depends on the right diagnosis. Reproduces before theorizing, and hands confirmed fixes to /test.
++---
++
++Not every problem is a bug. Not every bug needs debugging. The instinct when something breaks is
++to keep prompting — describe it, get a fix, get another broken version, describe that, repeat. The
++session gets longer, the context gets polluted, and the code gets worse. Usually the problem isn't
++the code — it's not knowing what type of failure this actually is.
++
++This skill diagnoses first, then prescribes. Those are two separate steps and they don't swap.
++
++---
++
++## Step 1 — Describe What Went Wrong
++
++The developer describes the problem. The skill listens before doing anything else.
++
++Ask:
++
++```
++Describe what is wrong. Be specific:
++- What did you expect to happen?
++- What happened instead?
++- How many times have you tried to fix it already?
++```
++
++The number of fix attempts matters — it tells you whether this is a fresh problem or a session that has already gone wrong.
++
++---
++
++## Step 2 — Identify the Failure Mode
++
++### Failure Mode 1 — A specific thing is broken
++
++**Signs:** isolated to one component/function/route, the rest of the project works, this is the first or second attempt, the error or wrong behaviour is clear and specific.
++
++**Response:** Targeted fix — go to Step 3A.
++
++### Failure Mode 2 — The session has gone wrong
++
++**Signs:** multiple fix attempts have made things worse, fixes are patching fixes, context is full of failed attempts, it's no longer clear what the original problem was.
++
++**What it means:** the session is polluted. More prompting compounds the damage — the feature needs rebuilding in a clean context, not patching further.
++
++**Response:** Hard reset — go to Step 3B.
++
++### Failure Mode 3 — The foundation is wrong
++
++**Signs:** the code runs but the behaviour is fundamentally wrong, a core requirement/library API/architectural pattern was misunderstood, the implementation itself — not a piece of it — is wrong.
++
++**What it means:** not a debugging problem. Fixing individual pieces won't help because the approach is incorrect.
++
++**Response:** Rethink — go to Step 3C.
++
++Tell the developer which mode this is before proceeding:
++
++```
++This looks like Failure Mode [1/2/3] — [name].
++
++[One sentence explaining why you identified it this way.]
++
++Here is how we handle this:
++```
++
++---
++
++## Step 3A — Targeted Fix
++
++For Failure Mode 1.
++
++### Reproduce it first
++
++Before theorizing about why, confirm you can actually trigger the failure — run the code path,
++the failing test, or the exact steps the developer described. A root cause diagnosed against a
++failure you haven't actually seen happen is a guess wearing the costume of an explanation.
++
++If it won't reproduce, say so and find out why before going further — it may not be Failure Mode 1
++after all.
++
++### Find the root cause
++
++Read only the code directly relevant to the problem — not the whole codebase. Identify the actual reason the problem exists, not a symptom of it.
++
++```
++Root cause: [specific explanation of why this is happening]
++
++This is different from the symptom because: [explanation]
++```
++
++### Suggest a precise fix
++
++The fix that addresses the root cause — not a workaround, not a patch on top of broken code.
++
++```
++Fix: [what needs to change and why]
++
++This will resolve the root cause because: [explanation]
++```
++
++Wait for the developer to confirm before making any changes.
++
++### If the fix does not work
++
++Stop. Don't suggest another fix immediately — re-examine the root cause diagnosis, since a fix that
++didn't work usually means the diagnosis was wrong. Diagnose again from the beginning.
++
++If two diagnoses have both been wrong, this may actually be Failure Mode 2 or 3. Re-evaluate.
++
++### Lock it in
++
++Once the fix is confirmed working, offer — don't force — to hand it to `/test` for a regression
++test, so this doesn't come back silently:
++
++```
++Fixed and confirmed. Want me to write a regression test for this with /test so it stays fixed?
++```
++
++---
++
++## Step 3B — Hard Reset
++
++For Failure Mode 2.
++
++### Acknowledge the situation honestly
++
++```
++This session has gone too far in the wrong direction
++to recover by patching. The right move is a clean start.
++
++This is not a failure — it is the correct response
++to a polluted context. A fresh session with clear intent
++will be faster than continuing here.
++```
++
++### Save what is worth keeping
++
++```
++## Reset Note — [Feature Name]
++
++### What we were building
++[Original feature description]
++
++### What went wrong
++[Honest summary of how the session went off track]
++
++### What to avoid next time
++[Specific approaches or patterns that did not work]
++
++### Starting point for next session
++[Where to begin fresh — what to keep, what to discard]
++```
++
++### Instruct the developer
++
++```
++Next steps:
++
++1. Save this reset note somewhere accessible
++2. End this session completely
++3. Start a fresh session
++4. Begin with /remember restore if memory exists
++5. Approach [feature name] again with the reset note as context
++
++Do not continue in this session.
++```
++
++---
++
++## Step 3C — Rethink
++
++For Failure Mode 3.
++
++### Name the wrong assumption
++
++```
++The core issue is not a bug — it is a wrong assumption:
++
++Assumed: [what was assumed]
++Reality: [what is actually true]
++
++This means the current implementation cannot be fixed
++by patching. The approach needs to change.
++```
++
++### Propose the correct approach
++
++```
++Correct approach: [description]
++
++Key difference from current approach: [explanation]
++
++What needs to be discarded: [what cannot be salvaged]
++What can be kept: [what is still valid]
++```
++
++### Do not start rebuilding immediately
++
++```
++Does this diagnosis match your understanding?
++
++If yes — we can start fresh with the correct approach.
++If no — tell me what I am getting wrong.
++```
++
++Only after the developer confirms does any rebuilding begin.
++
++---
++
++## The Principle
++
++The worst thing you can do when something is broken is keep doing the same thing faster.
++
++Diagnose first. Reproduce before theorizing. Respond correctly for the failure you actually have —
++and once it's fixed, hand it to `/test` so it's a regression that can't happen silently again.
+diff --git a/skills/distill/SKILL.md b/skills/distill/SKILL.md
+index 96e758f..740c52f 100644
+--- a/skills/distill/SKILL.md
++++ b/skills/distill/SKILL.md
+@@ -20,7 +20,7 @@ Ask, honestly, about this session:
+ - Did a debugging path take more than a couple of attempts to find, in a way that would help next time if written down?
+ - Did the developer have to explain a workflow step, convention, or preference that isn't covered by an existing skill or `code-standards.md`?
+ - Did a pattern get used more than once in this project that isn't documented anywhere?
+-- Would an existing skill (`architect`, `remember`, `review`, `recover`, `imprint`, `ui-ux-frontend`, `context-gather`) have done this better if it had one more instruction in it?
++- Would an existing skill (`architect`, `remember`, `review`, `debug`, `test`, `document`, `imprint`, `ui-ux-frontend`, `context-gather`) have done this better if it had one more instruction in it?
+ 
+ If none of these apply, say so and stop:
+ 
+@@ -59,3 +59,5 @@ Save this? (yes / no / edit first)
+ ## Keep Skills Honest
+ 
+ A new skill needs the same frontmatter discipline as the rest of this project's skills: `name` and a `description` specific enough to trigger reliably and that doesn't overlap with what an existing skill already claims. If two skills would fire on the same situation, that's a conflict — flag it in the proposal instead of silently creating one anyway.
++
++Read `.opencode/conventions.md` before writing the diff. A proposal that pads a skill with encouragement instead of instruction, or duplicates something a context file already says, is the kind of thing that convention doc exists to catch before it ships.
+diff --git a/skills/document/SKILL.md b/skills/document/SKILL.md
+new file mode 100644
+index 0000000..f8896f1
+--- /dev/null
++++ b/skills/document/SKILL.md
+@@ -0,0 +1,37 @@
++---
++name: document
++description: Draft a changelog entry, PR description, or short release note for a change, pulled from what actually happened — the plan, the diff, and /review's findings. Offered at the Close-out Gate, and usable any time mid-session the work calls for it.
++---
++
++Code that ships without a record of why is a mystery for whoever reads it next — including you,
++next session. This turns a finished change into a short, honest written record.
++
++This is a skill, not a gate — it doesn't need a confirmation to run. Use it whenever the work calls
++for it, not only when offered at close-out.
++
++## When To Reach For This
++
++- **Offered at the Close-out Gate**, alongside `/remember save` and distill.
++- **Any time mid-session** the work calls for it — a notable fix, a decision worth a changelog
++  line, a feature substantial enough that a bare commit message would lose the reasoning. Use it
++  without waiting to be asked.
++
++## Step 1 — Pick the Right Shape
++
++Infer which of these fits, or ask if it's not obvious — say which you picked either way:
++
++- **Changelog entry** — one or two lines: what changed, why it matters to someone using the project.
++- **PR description** — what changed, why, how it was tested, anything a reviewer needs to know.
++- **Release note** — user-facing, no implementation detail.
++
++## Step 2 — Write From What Actually Happened
++
++Pull from the plan, the diff, and `/review`'s findings — not from memory of what was intended.
++State what changed, not the process of building it. A changelog entry gets none of the
++implementation detail a PR description gets; a release note gets neither.
++
++## Step 3 — Hand It Off
++
++Show the draft. This is text for the developer to use, not a file this skill writes on its own
++authority. If `CHANGELOG.md` already exists, offer to append to it — otherwise just present the
++draft.
+diff --git a/skills/imprint/SKILL.md b/skills/imprint/SKILL.md
+index 6041bb9..b78b9b7 100644
+--- a/skills/imprint/SKILL.md
++++ b/skills/imprint/SKILL.md
+@@ -3,13 +3,11 @@ name: imprint
+ description: After building any UI component, extract the visual patterns that matter for consistency and save them to ui-registry.md. So every component built after this one matches what came before.
+ ---
+ 
+-UI consistency does not happen by accident. It happens because every component is built with awareness of what already exists.
++AI-built UIs drift because each component gets built without memory of the last one — spacing,
++color, and radius all vary slightly until the app looks like it had several different designers.
+ 
+-The problem with AI-built interfaces is that each component gets built in isolation. The agent does not remember what it built three sessions ago. So spacing drifts. Colors vary slightly. Border radius is inconsistent. The app looks like it was built by multiple people with different tastes.
+-
+-This skill fixes that. Run it after building any UI component. It reads what was just built, extracts the patterns that matter for consistency, and saves them so every future component can match.
+-
+-One command. Run it every time. That is the whole system.
++This skill closes that gap: read what was just built, extract what matters for consistency, save
++it to `ui-registry.md`. Run it after every UI component.
+ 
+ ---
+ 
+diff --git a/skills/recover/SKILL.md b/skills/recover/SKILL.md
+deleted file mode 100644
+index f80c682..0000000
+--- a/skills/recover/SKILL.md
++++ /dev/null
+@@ -1,253 +0,0 @@
+----
+-name: recover
+-description: When something goes wrong during a build, diagnose what type of failure it is before deciding how to respond. Targeted fix, hard reset, or full rethink — the right response depends on the right diagnosis.
+----
+-
+-Not every problem is a bug. Not every bug needs debugging.
+-
+-When something goes wrong with AI-assisted development, the instinct is to keep prompting — describe the problem, ask for a fix, get another broken version, describe that problem, ask for another fix. The session gets longer. The context gets polluted. The code gets worse.
+-
+-The problem is not the code. The problem is not knowing what type of failure you are dealing with.
+-
+-This skill diagnoses the failure first. Then it prescribes the right response. Those are two separate steps and they cannot be swapped.
+-
+----
+-
+-## Step 1 — Describe What Went Wrong
+-
+-The developer describes the problem. The skill listens before doing anything else.
+-
+-Ask:
+-
+-```
+-Describe what is wrong. Be specific:
+-- What did you expect to happen?
+-- What happened instead?
+-- How many times have you tried to fix it already?
+-```
+-
+-Read the answer carefully. The number of fix attempts is important — it tells you whether this is a fresh problem or a session that has already gone wrong.
+-
+----
+-
+-## Step 2 — Identify the Failure Mode
+-
+-Based on the description, determine which of three failure modes this is.
+-
+-### Failure Mode 1 — A specific thing is broken
+-
+-**Signs:**
+-
+-- The problem is isolated — one component, one function, one route
+-- The rest of the project works correctly
+-- This is the first or second attempt at fixing it
+-- The error message or wrong behaviour is clear and specific
+-
+-**What it means:**
+-This is a normal bug. It has a root cause that can be found and fixed precisely.
+-
+-**Response:** Targeted fix — go to Step 3A.
+-
+----
+-
+-### Failure Mode 2 — The session has gone wrong
+-
+-**Signs:**
+-
+-- Multiple fix attempts have made things worse or created new problems
+-- The code has become tangled — fixes are patching fixes
+-- Context in this session is full of failed attempts
+-- It is no longer clear what the original problem was
+-
+-**What it means:**
+-The session is polluted. More prompting will not help — it will compound the damage. The feature needs to be rebuilt in a clean context, not patched further.
+-
+-**Response:** Hard reset — go to Step 3B.
+-
+----
+-
+-### Failure Mode 3 — The foundation is wrong
+-
+-**Signs:**
+-
+-- The code runs but produces fundamentally wrong behaviour
+-- Claude has been confidently building something that misunderstands a core requirement, library API, or architectural pattern
+-- The problem is not a bug in the implementation — the implementation itself is wrong
+-- Fixing individual pieces will not help because the approach is incorrect
+-
+-**What it means:**
+-This is not a debugging problem. The approach needs to be reconsidered before any code is written. More implementation in the wrong direction makes things harder to untangle.
+-
+-**Response:** Rethink — go to Step 3C.
+-
+----
+-
+-Tell the developer which failure mode this is before proceeding:
+-
+-```
+-This looks like Failure Mode [1/2/3] — [name].
+-
+-[One sentence explaining why you identified it this way.]
+-
+-Here is how we handle this:
+-```
+-
+----
+-
+-## Step 3A — Targeted Fix
+-
+-For Failure Mode 1.
+-
+-### Diagnose before touching code
+-
+-Ask the developer to share:
+-
+-- The exact error message or wrong behaviour
+-- The specific file or function where it happens
+-- What the code is supposed to do versus what it actually does
+-
+-Read the relevant code. Do not read the entire codebase — only what is directly relevant to the problem.
+-
+-### Find the root cause
+-
+-Identify the root cause before suggesting any fix. A root cause is the actual reason the problem exists — not a symptom of it.
+-
+-State the root cause clearly:
+-
+-```
+-Root cause: [specific explanation of why this is happening]
+-
+-This is different from the symptom because: [explanation]
+-```
+-
+-### Suggest a precise fix
+-
+-Describe the fix that addresses the root cause. Not a workaround. Not a patch on top of broken code.
+-
+-```
+-Fix: [what needs to change and why]
+-
+-This will resolve the root cause because: [explanation]
+-```
+-
+-Wait for the developer to confirm before making any changes.
+-
+-### If the fix does not work
+-
+-If the suggested fix does not resolve the problem — stop. Do not suggest another fix immediately.
+-
+-Re-examine the root cause diagnosis. If the fix did not work, the root cause was probably wrong. Diagnose again from the beginning before trying again.
+-
+-If two root cause diagnoses have both been wrong — this may actually be Failure Mode 2 or 3. Re-evaluate.
+-
+----
+-
+-## Step 3B — Hard Reset
+-
+-For Failure Mode 2.
+-
+-### Acknowledge the situation honestly
+-
+-```
+-This session has gone too far in the wrong direction
+-to recover by patching. The right move is a clean start.
+-
+-This is not a failure — it is the correct response
+-to a polluted context. A fresh session with clear intent
+-will be faster than continuing here.
+-```
+-
+-### Save what is worth keeping
+-
+-Before the session ends, extract anything valuable from the current state:
+-
+-- What was the original feature supposed to do?
+-- What parts of the current implementation, if any, are actually correct?
+-- What has been learned about what does not work?
+-- What should the next session avoid?
+-
+-Write this as a brief reset note:
+-
+-```
+-## Reset Note — [Feature Name]
+-
+-### What we were building
+-[Original feature description]
+-
+-### What went wrong
+-[Honest summary of how the session went off track]
+-
+-### What to avoid next time
+-[Specific approaches or patterns that did not work]
+-
+-### Starting point for next session
+-[Where to begin fresh — what to keep, what to discard]
+-```
+-
+-### Instruct the developer
+-
+-```
+-Next steps:
+-
+-1. Save this reset note somewhere accessible
+-2. End this session completely
+-3. Start a fresh session
+-4. Begin with /remember restore if memory exists
+-5. Approach [feature name] again with the reset note as context
+-
+-Do not continue in this session.
+-```
+-
+----
+-
+-## Step 3C — Rethink
+-
+-For Failure Mode 3.
+-
+-### Name the wrong assumption
+-
+-The foundation being wrong means something was assumed that should not have been. Find it.
+-
+-```
+-The core issue is not a bug — it is a wrong assumption:
+-
+-Assumed: [what was assumed]
+-Reality: [what is actually true]
+-
+-This means the current implementation cannot be fixed
+-by patching. The approach needs to change.
+-```
+-
+-### Propose the correct approach
+-
+-Based on the correct understanding, describe what the approach should have been:
+-
+-```
+-Correct approach: [description]
+-
+-Key difference from current approach: [explanation]
+-
+-What needs to be discarded: [what cannot be salvaged]
+-What can be kept: [what is still valid]
+-```
+-
+-### Do not start rebuilding immediately
+-
+-A rethink needs the developer to understand and agree before any code changes. Present the analysis and wait for confirmation.
+-
+-```
+-Does this diagnosis match your understanding?
+-
+-If yes — we can start fresh with the correct approach.
+-If no — tell me what I am getting wrong.
+-```
+-
+-Only after the developer confirms does any rebuilding begin.
+-
+----
+-
+-## The Principle
+-
+-The worst thing you can do when something is broken is keep doing the same thing faster.
+-
+-Diagnose first. Respond correctly. Different failures need different responses — and knowing which failure you are dealing with is more than half the solution.
+diff --git a/skills/remember/SKILL.md b/skills/remember/SKILL.md
+index 6fadd28..49750b7 100644
+--- a/skills/remember/SKILL.md
++++ b/skills/remember/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: remember
+-description: Save what matters at the end of a session so the next session picks up exactly where you left off. Or restore context at the start of a new session so nothing is lost between them.
++description: Save what matters at the end of a session so the next session picks up exactly where you left off, in memory.md — plus a compact rolling log of past sessions in memory-log.md. Or restore context at the start of a new session so nothing is lost between them.
+ ---
+ 
+ AI has no memory between sessions. Every new session starts blank. This skill fixes that.
+@@ -9,13 +9,22 @@ Run it at the end of a session to save. Run it at the start of a new session to
+ 
+ ## Auto-Restore Note
+ 
+-This project's `.opencode/plugin/memory-hook.js` injects `memory.md` and `context/progress-tracker.md` at the start of every session, and instructs the agent to open with a restore-checkpoint: summarise what was restored and wait for the developer to confirm before doing anything else. That checkpoint is the same thing `/remember restore` does manually below — it now happens automatically, every session, without the developer needing to type the command.
++This project's `.opencode/plugin/memory-hook.js` injects a compact restore summary at the start of
++every session — `memory.md` plus just the "In Progress" and "Up Next" sections of
++`context/progress-tracker.md`, not its full history — and instructs the agent to open with a
++restore-checkpoint: summarise what was restored and wait for the developer to confirm before doing
++anything else. That checkpoint is the same thing `/remember restore` does manually below — it now
++happens automatically, every session, without the developer needing to type the command. The hook
++also runs a deterministic check comparing the branch recorded in `memory.md` against the branch the
++repo is actually on, and flags it if they don't match — no LLM judgment involved, just a heads-up.
+ 
+-`/remember restore` still exists for when the auto-restore checkpoint isn't enough — a session ended abnormally, the summary looks incomplete, or the developer wants the full cross-checked read including the other context files listed in Step 2 below.
++`/remember restore` still exists for when the auto-restore checkpoint isn't enough — a session
++ended abnormally, the summary looks incomplete, or the developer wants the full cross-checked read
++including `memory-log.md` and the other context files listed in Step 2 below.
+ 
+ ## Security Boundary
+ 
+-This skill must never persist secrets. If any sensitive value appears in the conversation or context, do not copy it to `memory.md`.
++This skill must never persist secrets. If any sensitive value appears in the conversation or context, do not copy it to `memory.md` or `memory-log.md`.
+ 
+ Sensitive data includes (non-exhaustive):
+ 
+@@ -49,44 +58,63 @@ If the developer just runs `/remember` without specifying — ask them which one
+ 
+ When the developer runs `/remember save`:
+ 
+-### What to capture
++### Two files, two jobs
+ 
+-Review the current conversation to extract only what a developer would genuinely need to continue this work in a completely fresh context. Do not include sensitive data such as credentials, API keys, or tokens in the saved memory. Not a transcript. Not a summary of everything that happened. The essential state.
++`memory.md` is the live continuity file — it only holds what a resumed session needs and can't get
++from `context/progress-tracker.md`: the exact next step and anything not yet written down anywhere
++durable. It gets **overwritten** each save; it is never a history.
+ 
+-Think like someone handing off a project to a colleague who is equally skilled but knows nothing about what happened today. What would they need to know to continue without losing anything?
++`memory-log.md` is the history. A short, append-only digest — one entry per session — for when
++someone actually needs to know what happened three sessions ago. It is not auto-injected, so it
++costs nothing on the common path.
+ 
+-Capture:
++Do not put the same fact in both. If it's durable project status, it belongs in
++`progress-tracker.md`, not either memory file.
+ 
+-**What was built** — specific files created or modified, features completed, components added. Be precise. Not "built the auth flow" — "created app/(auth)/login/page.tsx, app/(auth)/callback/page.tsx, and middleware.ts. OAuth with Google and GitHub working end to end."
++### What goes in memory.md
+ 
+-**Decisions made** — choices that would be hard to reverse or that future work depends on. Not implementation details — architectural choices. "Chose to use server-side data fetching over client-side — avoids loading states and keeps sensitive logic off the client."
++Think like someone handing off to a colleague who is equally skilled but knows nothing about today. What do they need to not start cold?
+ 
+-**Problems solved** — any issue that took time to figure out. So the next session does not solve the same problem twice. "Third party auth callback requires a trailing slash in the redirect URL — fixed in the callback handler."
++**Active Feature** — what's being worked on, and the current git branch (run `git branch --show-current` if this is a git repo; write `(no git repo)` if not).
+ 
+-**Current state** — exactly where things stand right now. What works, what is partial, what is known to be broken.
++**Session Phase** — planning / building / reviewing / closing.
+ 
+-**What comes next** — the very next thing that needs to happen. Specific enough that the next session can start immediately without figuring out where to begin.
++**Next Action** — the very next concrete step. Specific enough to start immediately.
+ 
+-**Open questions** — anything unresolved that the next session needs to address.
++**Decisions & Problems Not Yet Elsewhere** — only things not already captured in a context file or spec. If it's in `architecture.md` or `code-standards.md` already, leave it out here.
+ 
+-### What not to capture
++**Open Questions** — anything unresolved the next session needs to address.
++
++### What goes in memory-log.md instead
++
++The things a colleague wouldn't need to *resume* work, but that are worth not losing entirely — what got built, what broke and how it got fixed, anything genuinely surprising. Write one compact entry:
++
++```markdown
++### [date] — [feature/session name]
++
++[2-4 lines: what was built or fixed, and the outcome. Not a transcript — the kind of thing worth remembering happened, not how it happened.]
++```
++
++Prepend it above the most recent existing entry. If the log now has more than 20 entries, drop the oldest ones until it's back to 20.
++
++### What not to capture (either file)
+ 
+ - Implementation details that are visible in the code
+-- Decisions already documented in context files
++- Decisions already documented in a context file
+ - Anything that can be inferred by reading the codebase
+ - The process of how something was built — only what was built and what was decided
+ - Any secrets or credential-like values (tokens, keys, passwords, cookies, auth headers, connection strings)
+ 
+ ### Safety check before writing
+ 
+-Before writing `memory.md`, run a final pass over the content to ensure no sensitive value is present.
++Before writing either file, run a final pass over the content to ensure no sensitive value is present.
+ 
+ - If sensitive content is found, remove or redact it before writing.
+ - Keep only the minimal non-sensitive context needed to continue next session.
+ 
+ ### Where to save
+ 
+-Write the memory to `memory.md` in the project root. This file always contains only the most recent session state.
++Write to `memory.md` in the project root; append to `memory-log.md` alongside it.
+ 
+ If `memory.md` already exists, show the developer a brief summary of what is currently saved and ask for confirmation before overwriting:
+ 
+@@ -101,7 +129,7 @@ Overwrite with this session's memory? (yes / no)
+ 
+ Step 2 — After the developer responds:
+ 
+-- If they say **yes**, write the new `memory.md`.
++- If they say **yes**, write the new `memory.md` and append the `memory-log.md` entry (trimming to 20 if needed).
+ - If they say **no**, do not write anything and reply:
+ 
+ ```
+@@ -111,41 +139,37 @@ No changes made. memory.md is unchanged.
+ ### Format
+ 
+ ```markdown
+-# Memory — [Feature or Session Name]
+-
+-Last updated: [date and time]
++# Memory
+ 
+-## What was built
++## Active Feature
+ 
+-[Specific files, components, features completed this session]
++[What's being worked on]
+ 
+-## Decisions made
++Branch: [current git branch, or "(no git repo)"]
+ 
+-[Architectural and implementation decisions that future work depends on]
++## Session Phase
+ 
+-## Problems solved
++[planning / building / reviewing / closing]
+ 
+-[Issues resolved this session — so they are not solved again]
++## Next Action
+ 
+-## Current state
+-
+-[Exactly where things stand — what works, what is partial, what is broken]
++[The very first thing to do in the next session — specific and actionable]
+ 
+-## Next session starts with
++## Decisions & Problems Not Yet Elsewhere
+ 
+-[The very first thing to do in the next session — specific and actionable]
++[Only what isn't already captured in a context file]
+ 
+-## Open questions
++## Open Questions
+ 
+ [Anything unresolved that needs addressing]
+ ```
+ 
+-After writing the file, confirm to the developer:
++After writing both files, confirm to the developer:
+ 
+ ```
+-Memory saved to memory.md.
++Memory saved to memory.md. Logged to memory-log.md.
+ 
+-Next session: the auto-restore hook will surface this automatically. Run /remember restore any time you want the full picture confirmed explicitly.
++Next session: the auto-restore hook will surface this automatically. Run /remember restore any time you want the full picture, including history.
+ ```
+ 
+ Then check whether anything from this session is worth turning into a skill — see `distill`. If a pattern repeated, a debugging path was non-obvious, or a workflow step had to be explained that isn't covered by an existing skill, say so and offer to run `/distill`. Do not run it automatically — propose it, then wait.
+@@ -175,7 +199,7 @@ To save memory at the end of a session, run /remember save.
+ 
+ ### Step 2 — Read everything available
+ 
+-Read `memory.md` first. Then check for these specific context files if they exist and read only those:
++Read `memory.md` and `memory-log.md` first, then check for these specific context files if they exist and read only those:
+ 
+ - `CLAUDE.md`, `.claude/context.md` — Claude Code
+ - `.github/copilot-instructions.md` — GitHub Copilot
+@@ -196,9 +220,9 @@ Do not start building. Do not assume the developer wants to continue immediately
+ ```
+ Memory restored. Here is where we are:
+ 
+-**Last session:** [what was built]
+-**Current state:** [what works right now]
+-**Decisions in place:** [key decisions that are locked]
++**Active feature:** [what's being worked on, and branch]
++**Session phase:** [planning / building / reviewing / closing]
++**Decisions in place:** [key decisions not yet in a context file]
+ **Next up:** [what the next session should start with]
+ 
+ Is this correct? Say yes to continue, or correct anything
+diff --git a/skills/review/SKILL.md b/skills/review/SKILL.md
+index acbd05f..436484f 100644
+--- a/skills/review/SKILL.md
++++ b/skills/review/SKILL.md
+@@ -78,6 +78,7 @@ Check:
+ - Edge cases — empty states, loading states, missing data — are these handled?
+ - Console errors — any errors or warnings in the browser or terminal?
+ - Obvious bugs — anything that would clearly break for a real user?
++- Tests — if `context/code-standards.md` establishes this project uses tests, were they written for this change, and do they pass? Report the gap if `/test` was skipped, without fixing it yourself.
+ 
+ ---
+ 
+diff --git a/skills/test/SKILL.md b/skills/test/SKILL.md
+new file mode 100644
+index 0000000..1c052fa
+--- /dev/null
++++ b/skills/test/SKILL.md
+@@ -0,0 +1,50 @@
++---
++name: test
++description: Write and run tests for a change just made, or verify existing tests still pass. Reached for automatically once context/code-standards.md establishes that this project uses tests — during building, before /review, and at the end of /debug — or any time on direct request.
++---
++
++A change without a test only proves it worked once, for you, right now. This skill exists so "it
++works" and "it's tested" stop being two different sentences.
++
++This is a skill, not a gate — it doesn't need a confirmation to run. It's a normal part of doing
++the work, the same way reading the relevant code before editing it is.
++
++## When To Reach For This
++
++- **Automatically**, once `context/code-standards.md`'s Testing section establishes this project
++  uses tests — after building a feature, before `/review`.
++- **Automatically**, at the end of `/debug`, when a fix is confirmed and worth locking in.
++- **Any time** the developer asks directly, regardless of what code-standards.md says.
++
++If `code-standards.md` has no Testing section, or it says this project skips automated tests, do
++not run this unprompted — only on direct request. Don't invent a testing setup a project hasn't
++opted into.
++
++## Step 1 — Know What You're Testing
++
++Read `context/code-standards.md`'s Testing section for the framework, conventions, and how tests
++are run here. Use what the project already uses — don't introduce a new framework or pattern.
++
++Identify what actually needs coverage: the behaviour just built or fixed, and the failure modes
++that would matter if it broke. Not every possible input — the ones that matter.
++
++## Step 2 — Write Tests That Would Fail Without the Change
++
++A test that passes with or without the fix proves nothing. Before finishing, check: would this
++test have failed against the old code? If unsure, verify it — reason through the change and
++confirm the test actually exercises it, or check against the prior state directly if that's fast.
++
++## Step 3 — Run Them
++
++Run the suite, or at minimum the new/changed tests, and read the actual output. Don't assume
++green. A test that doesn't compile or run isn't a passing test.
++
++## Step 4 — Report
++
++```
++Tests: [N added/updated], [pass/fail].
++[One line on what's covered, or what isn't and why.]
++```
++
++If something genuinely can't be tested this way (a visual change, an external side effect), say
++so — don't fake coverage with a trivial assertion just to show a green check.
+diff --git a/src/cli.js b/src/cli.js
+index 06b6edb..5eca30d 100644
+--- a/src/cli.js
++++ b/src/cli.js
+@@ -7,6 +7,7 @@ import { STUBS, writeStub } from './stubs.js';
+ import { generateAgentsMd, CORE_SKILLS, OPTIONAL_SKILLS } from './generators/agents-md.js';
+ import { generateOpencodeJson } from './generators/opencode-json.js';
+ import { installMemoryPlugin } from './generators/memory-plugin.js';
++import { installConventions } from './generators/conventions.js';
+ import { installSkills, ALL_SKILLS } from './skills.js';
+ 
+ export async function run() {
+@@ -60,8 +61,10 @@ export async function run() {
+   mkdirSync(join(projectDir, 'context'));
+ 
+   writeStub(writeFileSync, join(projectDir, 'memory.md'), STUBS['memory.md']);
++  writeStub(writeFileSync, join(projectDir, 'memory-log.md'), STUBS['memory-log.md']);
+   writeStub(writeFileSync, join(projectDir, 'context', 'progress-tracker.md'), STUBS['progress-tracker.md']);
+   done('memory.md');
++  done('memory-log.md');
+   done('context/progress-tracker.md');
+ 
+   if (hasUI) {
+@@ -79,6 +82,9 @@ export async function run() {
+   installMemoryPlugin(projectDir);
+   done('.opencode/plugin/memory-hook.js (auto-restore at session start)');
+ 
++  installConventions(projectDir);
++  done('.opencode/conventions.md (skill-writing style guide, read by distill)');
++
+   // ── 6. Context stubs ─────────────────────────────────────────────────────────
+   const contentFiles = [
+     'project-overview.md', 'architecture.md', 'build-plan.md',
+diff --git a/src/generators/agents-md.js b/src/generators/agents-md.js
+index 078920c..a1352ea 100644
+--- a/src/generators/agents-md.js
++++ b/src/generators/agents-md.js
+@@ -1,6 +1,6 @@
+ // Skills always installed — the foundation. context-gather and distill are
+ // not user-toggleable; they're load-bearing for the rest of the workflow.
+-export const CORE_SKILLS = ['context-gather', 'architect', 'remember', 'review', 'recover', 'distill'];
++export const CORE_SKILLS = ['context-gather', 'architect', 'remember', 'review', 'debug', 'test', 'document', 'distill'];
+ // Optional, conditional on project shape.
+ export const OPTIONAL_SKILLS = ['imprint', 'ui-ux-frontend'];
+ 
+@@ -12,7 +12,9 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
+     has('architect') ? '| `/architect` | Before building any feature | Think through decisions before touching code |' : null,
+     has('remember')  ? '| `/remember save` | End of every session | Compress session state into memory.md |\n| `/remember restore` | Start of a session, on demand | Full restore + confirmation — the auto-restore hook covers the common case |' : null,
+     has('review')    ? '| `/review` | After building any feature | Dispatched to `@reviewer` — a read-only subagent that verifies correctness, not just that it works |' : null,
+-    has('recover')   ? '| `/recover` | When something breaks | Diagnose failure mode before attempting fixes |' : null,
++    has('debug')     ? '| `/debug` | When something breaks | Diagnose failure mode before attempting fixes; hands a confirmed fix to `/test` for a regression test |' : null,
++    has('test')      ? '| `/test` | Automatically once code-standards.md establishes this project uses tests — during building, before Review; automatically at the end of `/debug`; anytime on request | Write and run tests for the change just made. Not a gate — a normal part of doing the work |' : null,
++    has('document')  ? '| `/document` | Offered at close-out; anytime on request | Draft a changelog entry, PR description, or release note from the plan, diff, and review findings |' : null,
+     has('imprint')   ? '| `/imprint` | After the user confirms a UI feature is done | Capture visual patterns to ui-registry.md |' : null,
+     has('ui-ux-frontend') ? '| `ui-ux-frontend` | During context-gather Step 6, and before building any UI pattern not yet in ui-registry.md | Reference-only: distinctiveness guidance + sourced correctness checklist. Never overrides ui-tokens.md/ui-rules.md/ui-registry.md |' : null,
+     has('distill')   ? '| `distill` | Offered after `/remember save` | Proposes a new/updated skill from this session — never saves without approval |' : null,
+@@ -32,7 +34,7 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
+   const gateRows = [
+     has('architect') ? '| **Architect Gate** | Before any code is written for a feature | The developer has explicitly approved the plan produced by `/architect`\'s own Step 5 (a full plan for real features, one paragraph for trivial changes) — not any other implementation summary the agent writes itself |' : null,
+     has('review')    ? '| **Review Gate** | After a feature is built, before it\'s considered done | `/review` has been dispatched to `@reviewer`, findings relayed, and the developer has said the feature is satisfactory |' : null,
+-    '| **Close-out Gate** | After the developer confirms satisfaction | The developer has explicitly confirmed the close-out prompt — commit, imprint, tracker update, `/remember save`, distill proposal all happen only after this |',
++    '| **Close-out Gate** | After the developer confirms satisfaction | The developer has explicitly confirmed the close-out prompt — commit, imprint, tracker update, `/remember save`, a `/document` draft, distill proposal all happen only after this |',
+     '| **Session-Scope Gate** | Whenever a new feature is requested | The current feature has passed the Close-out Gate, or the developer\'s said to keep going anyway |',
+   ].filter(Boolean).join('\n');
+ 
+@@ -43,6 +45,11 @@ answer to the specific question the agent asked — not any affirmative reply to
+ A gate is not advisory. If it hasn't been passed, nothing on the other side of it happens, no
+ matter how confident the plan seems or how simple the feature looks.
+ 
++**Gates are not the same thing as skills.** ${has('debug') ? '`/debug`' : 'Reactive'}${has('test') ? ', `/test`' : ''}${has('document') ? ', and `/document`' : ''} are tools —
++reach for them whenever the work calls for it, or when asked, without stopping to ask permission
++first. Only the four gates below require that explicit stop-and-ask. Using a skill is never how a
++gate gets passed, and no skill, however routine, skips past one.
++
+ **Passing a gate requires two things:**
+ 1. The agent asks a single-purpose question that can only resolve one way — never bundled with a
+    feature-selection question, a status update, or anything else.
+@@ -80,12 +87,15 @@ a plan-shaped answer produced outside the named skill's own procedure.`;
+   let buildNum = 1;
+ 
+   buildingSteps.push(`${buildNum++}. Build the feature${hasUI && has('ui-ux-frontend') ? '. For any UI pattern not already described in ui-registry.md, consult the ui-ux-frontend skill first — otherwise match what ui-registry.md already records' : ''}`);
++  if (has('test')) {
++    buildingSteps.push(`${buildNum++}. If \`context/code-standards.md\` establishes that this project uses tests, reach for \`/test\` now — write and run tests for what was just built, before moving to review. This isn't a gate; use your judgment, but skipping it should be a deliberate call, not an oversight.`);
++  }
+   if (has('review')) {
+-    buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config, can't edit/write/bash) with the plan, the relevant context files, and the diff. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
++    buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config, can't edit/write/bash) with the plan, the relevant context files, the diff, and test results if \`/test\` ran. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
+     buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for and re-run \`/review\` as needed. Repeat until the user explicitly says they are satisfied.`);
+   }
+   // Close-out prompt — agent asks before proceeding
+-  buildingSteps.push(`${buildNum++}. **Close-out Gate** — when the user confirms they are satisfied, prompt them: "Ready to close out the session? I'll commit the work, run${hasUI && has('imprint') ? ' /imprint,' : ''} /remember save, and propose distill if anything's worth keeping." Wait for their confirmation before proceeding.`);
++  buildingSteps.push(`${buildNum++}. **Close-out Gate** — when the user confirms they are satisfied, prompt them: "Ready to close out the session? I'll commit the work, run${hasUI && has('imprint') ? ' /imprint,' : ''} /remember save,${has('document') ? ' draft a /document entry if useful,' : ''} and propose distill if anything's worth keeping." Wait for their confirmation before proceeding.`);
+   buildingSteps.push(`${buildNum++}. If the project has a git repo, stage and commit the work: \`git add -A && git commit -m "feat: <description>"\`. If you created a feature branch for this work, switch back to the main branch, merge, and delete the feature branch: \`git checkout main && git merge <branch-name> && git branch -d <branch-name>\`.`);
+   if (hasUI && has('imprint')) {
+     buildingSteps.push(`${buildNum++}. Run \`/imprint\` to capture UI patterns to ui-registry.md`);
+@@ -119,11 +129,12 @@ Do not write any code until the user has explicitly approved the plan.
+ ### Phase 2 — Building
+ 
+ ${buildingSteps.join('\n')}
+-${has('review') || has('remember') ? `
++${has('review') || has('remember') || has('test') ? `
+ ### Definition of Done
+ 
+ A feature is only done when:
+ ${has('review') ? '- `/review` has run via a fresh subagent, all issues are resolved, and the **user has explicitly confirmed they are satisfied**' : ''}
++${has('test') ? '- Tests have been written and pass, if `context/code-standards.md` establishes this project uses them' : ''}
+ ${has('remember') ? '- `/remember save` has run' : ''}
+ - \`context/progress-tracker.md\` reflects current state
+ 
+diff --git a/src/generators/conventions.js b/src/generators/conventions.js
+new file mode 100644
+index 0000000..1875ac3
+--- /dev/null
++++ b/src/generators/conventions.js
+@@ -0,0 +1,16 @@
++import { mkdirSync, copyFileSync } from 'node:fs';
++import { join, dirname } from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const CONVENTIONS_SOURCE = join(__dirname, '..', '..', 'docs', 'conventions.md');
++
++// distill reads this at runtime to check its own proposals against — see
++// skills/distill/SKILL.md. Lives under .opencode/ rather than a root-level
++// docs/ since it's agent tooling, not project documentation, and a root
++// docs/ folder is exactly the kind of thing a real project already has.
++export function installConventions(projectDir) {
++  const dest = join(projectDir, '.opencode');
++  mkdirSync(dest, { recursive: true });
++  copyFileSync(CONVENTIONS_SOURCE, join(dest, 'conventions.md'));
++}
+diff --git a/src/stubs.js b/src/stubs.js
+index adb0dc7..4f993e5 100644
+--- a/src/stubs.js
++++ b/src/stubs.js
+@@ -5,29 +5,45 @@
+ export const STUBS = {
+   'memory.md': `# Memory
+ 
+-_This file is written by \`/remember save\` at the end of every session, auto-injected at the start of the next one by \`.opencode/plugin/memory-hook.js\`, and read in full by \`/remember restore\`._
++_Written by \`/remember save\` at the end of a session. A compact form of this is auto-injected at
++the start of the next one by \`.opencode/plugin/memory-hook.js\`; read in full by \`/remember restore\`.
++For durable project status — what's done, what's pending — see \`context/progress-tracker.md\`.
++This file only covers what that one doesn't: exactly where a resumed session should pick up._
+ 
+ ---
+ 
+-## Last Session Summary
++## Active Feature
+ 
+ <!-- Auto-filled by /remember save -->
+ 
+-## Active Feature
++Branch: <!-- current git branch, if any -->
++
++## Session Phase
++
++<!-- planning / building / reviewing / closing -->
+ 
+-<!-- What was being worked on -->
++## Next Action
++
++<!-- The exact next step to take when resuming -->
+ 
+-## Key Decisions
++## Decisions & Problems Not Yet Elsewhere
+ 
+-<!-- Decisions made that affect the whole codebase -->
++<!-- Only what isn't already captured in a context file or spec -->
+ 
+ ## Open Questions
+ 
+-<!-- Things that need resolving before continuing -->
++<!-- Anything unresolved that needs addressing -->
++`,
+ 
+-## Next Action
++  'memory-log.md': `# Memory Log
+ 
+-<!-- Exact next step to take when resuming -->
++_Compact history of past sessions, appended by \`/remember save\`. Not auto-injected at session
++start — read this on request, or via \`/remember restore\` when the auto-restore summary isn't
++enough. Capped at the last 20 entries; oldest entries drop off as new ones are added._
++
++---
++
++<!-- Newest entry at the top. One entry per session, a few lines each — not a transcript. -->
+ `,
+ 
+   'progress-tracker.md': `# Progress Tracker
+@@ -237,6 +253,14 @@ Implementation rules and conventions for the entire project. The AI agent must f
+ 
+ ---
+ 
++## Testing
++
++<!-- Framework, how tests are run, what must have coverage — or state plainly
++     that this project skips automated tests, so /test knows not to reach for
++     itself unprompted -->
++
++---
++
+ ## Environment Variables
+ 
+ | Variable | Used In |

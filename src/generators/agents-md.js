@@ -1,6 +1,6 @@
 // Skills always installed — the foundation. context-gather and distill are
 // not user-toggleable; they're load-bearing for the rest of the workflow.
-export const CORE_SKILLS = ['context-gather', 'architect', 'remember', 'review', 'recover', 'distill'];
+export const CORE_SKILLS = ['context-gather', 'architect', 'remember', 'review', 'debug', 'test', 'document', 'distill'];
 // Optional, conditional on project shape.
 export const OPTIONAL_SKILLS = ['imprint', 'ui-ux-frontend'];
 
@@ -12,7 +12,9 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
     has('architect') ? '| `/architect` | Before building any feature | Think through decisions before touching code |' : null,
     has('remember')  ? '| `/remember save` | End of every session | Compress session state into memory.md |\n| `/remember restore` | Start of a session, on demand | Full restore + confirmation — the auto-restore hook covers the common case |' : null,
     has('review')    ? '| `/review` | After building any feature | Dispatched to `@reviewer` — a read-only subagent that verifies correctness, not just that it works |' : null,
-    has('recover')   ? '| `/recover` | When something breaks | Diagnose failure mode before attempting fixes |' : null,
+    has('debug')     ? '| `/debug` | When something breaks | Diagnose failure mode before attempting fixes; hands a confirmed fix to `/test` for a regression test |' : null,
+    has('test')      ? '| `/test` | Automatically once code-standards.md establishes this project uses tests — during building, before Review; automatically at the end of `/debug`; anytime on request | Write and run tests for the change just made. Not a gate — a normal part of doing the work |' : null,
+    has('document')  ? '| `/document` | Offered at close-out; anytime on request | Draft a changelog entry, PR description, or release note from the plan, diff, and review findings |' : null,
     has('imprint')   ? '| `/imprint` | After the user confirms a UI feature is done | Capture visual patterns to ui-registry.md |' : null,
     has('ui-ux-frontend') ? '| `ui-ux-frontend` | During context-gather Step 6, and before building any UI pattern not yet in ui-registry.md | Reference-only: distinctiveness guidance + sourced correctness checklist. Never overrides ui-tokens.md/ui-rules.md/ui-registry.md |' : null,
     has('distill')   ? '| `distill` | Offered after `/remember save` | Proposes a new/updated skill from this session — never saves without approval |' : null,
@@ -32,7 +34,7 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
   const gateRows = [
     has('architect') ? '| **Architect Gate** | Before any code is written for a feature | The developer has explicitly approved the plan produced by `/architect`\'s own Step 5 (a full plan for real features, one paragraph for trivial changes) — not any other implementation summary the agent writes itself |' : null,
     has('review')    ? '| **Review Gate** | After a feature is built, before it\'s considered done | `/review` has been dispatched to `@reviewer`, findings relayed, and the developer has said the feature is satisfactory |' : null,
-    '| **Close-out Gate** | After the developer confirms satisfaction | The developer has explicitly confirmed the close-out prompt — commit, imprint, tracker update, `/remember save`, distill proposal all happen only after this |',
+    '| **Close-out Gate** | After the developer confirms satisfaction | The developer has explicitly confirmed the close-out prompt — commit, imprint, tracker update, `/remember save`, a `/document` draft, distill proposal all happen only after this |',
     '| **Session-Scope Gate** | Whenever a new feature is requested | The current feature has passed the Close-out Gate, or the developer\'s said to keep going anyway |',
   ].filter(Boolean).join('\n');
 
@@ -42,6 +44,11 @@ A gate is a point in this protocol where work must stop until the developer give
 answer to the specific question the agent asked — not any affirmative reply to a nearby question.
 A gate is not advisory. If it hasn't been passed, nothing on the other side of it happens, no
 matter how confident the plan seems or how simple the feature looks.
+
+**Gates are not the same thing as skills.** ${has('debug') ? '`/debug`' : 'Reactive'}${has('test') ? ', `/test`' : ''}${has('document') ? ', and `/document`' : ''} are tools —
+reach for them whenever the work calls for it, or when asked, without stopping to ask permission
+first. Only the four gates below require that explicit stop-and-ask. Using a skill is never how a
+gate gets passed, and no skill, however routine, skips past one.
 
 **Passing a gate requires two things:**
 1. The agent asks a single-purpose question that can only resolve one way — never bundled with a
@@ -80,12 +87,15 @@ a plan-shaped answer produced outside the named skill's own procedure.`;
   let buildNum = 1;
 
   buildingSteps.push(`${buildNum++}. Build the feature${hasUI && has('ui-ux-frontend') ? '. For any UI pattern not already described in ui-registry.md, consult the ui-ux-frontend skill first — otherwise match what ui-registry.md already records' : ''}`);
+  if (has('test')) {
+    buildingSteps.push(`${buildNum++}. If \`context/code-standards.md\` establishes that this project uses tests, reach for \`/test\` now — write and run tests for what was just built, before moving to review. This isn't a gate; use your judgment, but skipping it should be a deliberate call, not an oversight.`);
+  }
   if (has('review')) {
-    buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config, can't edit/write/bash) with the plan, the relevant context files, and the diff. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
+    buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config, can't edit/write/bash) with the plan, the relevant context files, the diff, and test results if \`/test\` ran. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
     buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for and re-run \`/review\` as needed. Repeat until the user explicitly says they are satisfied.`);
   }
   // Close-out prompt — agent asks before proceeding
-  buildingSteps.push(`${buildNum++}. **Close-out Gate** — when the user confirms they are satisfied, prompt them: "Ready to close out the session? I'll commit the work, run${hasUI && has('imprint') ? ' /imprint,' : ''} /remember save, and propose distill if anything's worth keeping." Wait for their confirmation before proceeding.`);
+  buildingSteps.push(`${buildNum++}. **Close-out Gate** — when the user confirms they are satisfied, prompt them: "Ready to close out the session? I'll commit the work, run${hasUI && has('imprint') ? ' /imprint,' : ''} /remember save,${has('document') ? ' draft a /document entry if useful,' : ''} and propose distill if anything's worth keeping." Wait for their confirmation before proceeding.`);
   buildingSteps.push(`${buildNum++}. If the project has a git repo, stage and commit the work: \`git add -A && git commit -m "feat: <description>"\`. If you created a feature branch for this work, switch back to the main branch, merge, and delete the feature branch: \`git checkout main && git merge <branch-name> && git branch -d <branch-name>\`.`);
   if (hasUI && has('imprint')) {
     buildingSteps.push(`${buildNum++}. Run \`/imprint\` to capture UI patterns to ui-registry.md`);
@@ -119,11 +129,12 @@ Do not write any code until the user has explicitly approved the plan.
 ### Phase 2 — Building
 
 ${buildingSteps.join('\n')}
-${has('review') || has('remember') ? `
+${has('review') || has('remember') || has('test') ? `
 ### Definition of Done
 
 A feature is only done when:
 ${has('review') ? '- `/review` has run via a fresh subagent, all issues are resolved, and the **user has explicitly confirmed they are satisfied**' : ''}
+${has('test') ? '- Tests have been written and pass, if `context/code-standards.md` establishes this project uses them' : ''}
 ${has('remember') ? '- `/remember save` has run' : ''}
 - \`context/progress-tracker.md\` reflects current state
 

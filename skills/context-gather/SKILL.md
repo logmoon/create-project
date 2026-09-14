@@ -43,7 +43,7 @@ You are a context architect for this one phase only. Your job is to extract what
 | `context/ui-rules.md` | UI only | Layout, component rules, do-nots |
 | `context/progress-tracker.md` | Yes | Checklist generated from build-plan.md |
 
-`context/ui-registry.md` and `memory.md` stay empty shells — `imprint` and `remember` fill those during the build, not here.
+`context/ui-registry.md`, `memory.md`, and `memory-log.md` stay empty shells — `imprint` and `remember` fill those during the build, not here.
 
 ## Step 0 — Read First, Ask Later
 
@@ -67,7 +67,7 @@ Fill `build-plan.md` — the file that determines what gets built, in what order
 
 ## Step 4 — Code Standards
 
-Fill `code-standards.md` with rules specific to this stack, not a generic style guide: Language (type system rules — strict mode, no `any`, etc., or the equivalent for the actual language), Framework Conventions, File/Folder Naming, Component/Module Structure, Error Handling (the actual pattern, not "use try/catch"), Environment Variables, Dependencies (the approved list, matching the stack table). Keep the pre-filled Engineering Mindset rules; add project-specific ones if relevant.
+Fill `code-standards.md` with rules specific to this stack, not a generic style guide: Language (type system rules — strict mode, no `any`, etc., or the equivalent for the actual language), Framework Conventions, File/Folder Naming, Component/Module Structure, Error Handling (the actual pattern, not "use try/catch"), Testing (framework, how tests are run, what must have coverage — or state plainly that this project skips automated tests, so `/test` knows not to reach for itself unprompted), Environment Variables, Dependencies (the approved list, matching the stack table). Keep the pre-filled Engineering Mindset rules; add project-specific ones if relevant.
 
 ## Step 5 — Library Docs
 
@@ -92,7 +92,7 @@ Mechanical: convert every feature in `build-plan.md` into a checkbox under its p
 - **project-overview.md** — every section has real content; Features In/Out of Scope are both flat and specific; Success Criteria are verifiable.
 - **architecture.md** — stack table covers every technology in use; system boundaries state what each layer must never do; at least 6 invariants, specific to this project.
 - **build-plan.md** — sequential numbering; every feature has UI + Logic (or a note why one doesn't apply) and an exit criterion; nothing oversized for one session.
-- **code-standards.md** — matches the actual language and framework in use, not a generic template.
+- **code-standards.md** — matches the actual language and framework in use, not a generic template; Testing section states a real decision (framework + convention, or an explicit "no automated tests"), not left as `TBD`.
 - **library-docs.md** — every stack-table library has a section, each with a real example.
 - **ui-tokens.md / ui-rules.md** (if UI) — every color is a hex value; Do Nots has 5+ real, specific entries.
 

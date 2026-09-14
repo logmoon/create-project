@@ -3,13 +3,11 @@ name: imprint
 description: After building any UI component, extract the visual patterns that matter for consistency and save them to ui-registry.md. So every component built after this one matches what came before.
 ---
 
-UI consistency does not happen by accident. It happens because every component is built with awareness of what already exists.
+AI-built UIs drift because each component gets built without memory of the last one — spacing,
+color, and radius all vary slightly until the app looks like it had several different designers.
 
-The problem with AI-built interfaces is that each component gets built in isolation. The agent does not remember what it built three sessions ago. So spacing drifts. Colors vary slightly. Border radius is inconsistent. The app looks like it was built by multiple people with different tastes.
-
-This skill fixes that. Run it after building any UI component. It reads what was just built, extracts the patterns that matter for consistency, and saves them so every future component can match.
-
-One command. Run it every time. That is the whole system.
+This skill closes that gap: read what was just built, extract what matters for consistency, save
+it to `ui-registry.md`. Run it after every UI component.
 
 ---
 

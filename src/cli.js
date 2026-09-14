@@ -7,6 +7,7 @@ import { STUBS, writeStub } from './stubs.js';
 import { generateAgentsMd, CORE_SKILLS, OPTIONAL_SKILLS } from './generators/agents-md.js';
 import { generateOpencodeJson } from './generators/opencode-json.js';
 import { installMemoryPlugin } from './generators/memory-plugin.js';
+import { installConventions } from './generators/conventions.js';
 import { installSkills, ALL_SKILLS } from './skills.js';
 
 export async function run() {
@@ -60,8 +61,10 @@ export async function run() {
   mkdirSync(join(projectDir, 'context'));
 
   writeStub(writeFileSync, join(projectDir, 'memory.md'), STUBS['memory.md']);
+  writeStub(writeFileSync, join(projectDir, 'memory-log.md'), STUBS['memory-log.md']);
   writeStub(writeFileSync, join(projectDir, 'context', 'progress-tracker.md'), STUBS['progress-tracker.md']);
   done('memory.md');
+  done('memory-log.md');
   done('context/progress-tracker.md');
 
   if (hasUI) {
@@ -78,6 +81,9 @@ export async function run() {
   // ── 5. Memory hook plugin ───────────────────────────────────────────────────
   installMemoryPlugin(projectDir);
   done('.opencode/plugin/memory-hook.js (auto-restore at session start)');
+
+  installConventions(projectDir);
+  done('.opencode/conventions.md (skill-writing style guide, read by distill)');
 
   // ── 6. Context stubs ─────────────────────────────────────────────────────────
   const contentFiles = [
