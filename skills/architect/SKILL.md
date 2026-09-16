@@ -82,7 +82,7 @@ _(Feature-sized changes only.)_
 
 Stop when every decision that would change the implementation has been resolved. Not when every possible question is answered. When what matters is settled.
 
-A good senior engineer knows when the plan is solid enough to start. They do not keep asking questions for the sake of being thorough.
+A good senior engineer knows when the plan is solid enough to start. They do not keep asking questions for the sake of being thorough, and they do not pad the plan to look more rigorous — depth is earned by the change.
 
 When you are done, say:
 

@@ -42,6 +42,7 @@ export function generateOpencodeJson(hasUI, useContext7) {
         description: 'Reviews a just-built feature against the plan, architecture, and code standards. Read-only — reports issues, never fixes them.',
         mode: 'subagent',
         temperature: 0.1,
+        prompt: `One focused pass, not a review of your own review. Be thorough, smart and sharp, and work fast: depth is earned by the diff, not a mode switch. Go deeper where a mistake is expensive (auth, payments, migrations, permissions), where a judgment is uncertain, or where the change is large or has non-obvious control flow. You cannot edit, write, or run commands — verify claims by reading the actual code and diff, not by assuming. Report findings with file:line and a severity, then stop; never fix what you find. Don't manufacture issues to look thorough — a clean feature gets a clean report. Low token spend, no corners cut. Never mention the review process itself.`,
         permission: {
           edit: 'deny',
           bash: 'deny',

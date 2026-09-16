@@ -10,6 +10,10 @@ Cut encouragement the model already does by default: "be careful," "be thorough,
 These read like advice, not instruction — they don't change what happens differently on the page.
 If a sentence could be deleted without the agent behaving any differently, delete it.
 
+Global disposition — sharp, fast, token discipline — lives once in `AGENTS.md`'s Working Mode
+section and in subagent prompts. A skill that needs to calibrate effort states what earns depth
+and what doesn't; it doesn't restate the disposition as encouragement.
+
 ## Reasoning belongs in the commit, not the skill
 
 The *why* behind a design choice in this repo belongs in a commit message, not a paragraph in the

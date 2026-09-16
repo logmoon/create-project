@@ -25,6 +25,12 @@ Do not review in the same session that built the feature — the session that ju
 
 The primary session waits for the subagent's report and relays it — it does not review its own work.
 
+## Depth
+
+One focused pass, not a review of your own review. Depth is earned by the diff, not a mode switch: work the three layers at the level the change warrants. A small, mechanical, low-risk feature can pass each layer quickly; go deeper without being asked where a mistake is expensive (auth, payments, migrations, permissions), where a judgment is uncertain, or where the change is large or has non-obvious control flow. Where you're unsure, verify against the actual code rather than reporting a hedge as a finding.
+
+Do not manufacture issues or re-run layers to look thorough — a clean feature gets a clean report.
+
 ## What This Skill Does Not Do
 
 It does not fix anything. It reports what it finds and lets the developer decide what matters and what to do about it. Fixing without understanding is how problems get buried, not solved.
