@@ -34,18 +34,36 @@ export function generateOpencodeJson(hasUI, useContext7) {
 
     lsp: true,
 
-    // Custom subagent for /review to dispatch into — fresh context, can read
-    // and reason but cannot edit/write/run commands. Forces "report, don't
-    // fix" structurally instead of relying on the skill instructions alone.
+    // Custom subagent for /review to dispatch into — fresh context, read-only,
+    // and structurally unable to stall: no edit/write tools, no questions, no
+    // nested subagents, no web lookups. Bash is limited to the git reads it
+    // needs to scope the diff, so it never has to reconstruct a change by
+    // reading the whole repo.
     agent: {
       reviewer: {
-        description: 'Reviews a just-built feature against the plan, architecture, and code standards. Read-only — reports issues, never fixes them.',
+        description: 'Reviews a just-built change against the plan, architecture, and code standards. Diff-scoped, read-only — reports issues, never fixes them.',
         mode: 'subagent',
         temperature: 0.1,
-        prompt: `One focused pass, not a review of your own review. Be thorough, smart and sharp, and work fast: depth is earned by the diff, not a mode switch. Go deeper where a mistake is expensive (auth, payments, migrations, permissions), where a judgment is uncertain, or where the change is large or has non-obvious control flow. You cannot edit, write, or run commands — verify claims by reading the actual code and diff, not by assuming. Report findings with file:line and a severity, then stop; never fix what you find. Don't manufacture issues to look thorough — a clean feature gets a clean report. Low token spend, no corners cut. Never mention the review process itself.`,
+        steps: 15,
+        prompt: `You are a read-only reviewer running as a subagent. No developer can answer you: never ask a question, never wait for confirmation, and ignore AGENTS.md's session protocol — this prompt wins. Review the diff, not the repository. Get scope with git status and git diff --stat, then read the diff with git diff (or the range in the brief); read changed files and only the specific sections they depend on, never unrelated code. Context files are already in your instructions — consult one only to check a rule the diff may violate. Check the diff against the plan's goal and decisions, the architecture and code standards it touches, and production readiness (error handling, edge cases, obvious bugs, test gap); skip any check the diff does not touch. Stop once every changed hunk is accounted for. Report each finding as file:line — severity — problem, then a one-line verdict; if the brief is missing the goal or diff, report that as a blocker. Never edit, write, or run mutating commands. Don't manufacture issues; a clean diff gets a clean report.`,
         permission: {
           edit: 'deny',
-          bash: 'deny',
+          read: 'allow',
+          glob: 'allow',
+          grep: 'allow',
+          list: 'allow',
+          bash: {
+            '*': 'deny',
+            'git status*': 'allow',
+            'git diff*': 'allow',
+            'git log*': 'allow',
+            'git show*': 'allow',
+          },
+          task: 'deny',
+          webfetch: 'deny',
+          websearch: 'deny',
+          question: 'deny',
+          skill: 'deny',
         },
       },
     },

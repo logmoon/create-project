@@ -68,7 +68,7 @@ The first time you open the project, every `context/*.md` file is still a placeh
 
 6. **`/test` (if this project uses tests).** Once `code-standards.md` establishes that, the agent reaches for `/test` on its own before review — no confirmation needed, it's a skill, not a gate.
 
-7. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window and no permission to edit, write, or run commands. It can only report issues, never fix them. It reports findings and **stops**. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
+7. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window, no edit/write tools, and bash limited to read-only git (`git status`, `git diff`, `git log`, `git show`) so it reviews the diff instead of touring the repo. The primary hands it a compact brief (goal, plan decisions, diff range, test result), not a copy of the context files. It reports findings and **stops**. After a fix, it re-reviews only the new diff. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
 
 8. **You test.** You try the feature. Report issues, request fixes, re-run `/review` as needed. The agent fixes only what you ask for. Repeat until you're satisfied.
 
@@ -89,7 +89,7 @@ Across a full feature cycle, you make four calls: approve the `/architect` plan,
 | `context-gather` | First session, automatically | Fills context files before anything else can run |
 | `/architect` | Before building a feature | Plan before code, get explicit approval — sizes itself to trivial vs. real changes |
 | `/remember save` / `restore` | End / start of session | Compress session state into `memory.md`, log a digest to `memory-log.md`, restore both |
-| `/review` | After every feature | Dispatched to `@reviewer` — reports, never fixes |
+| `/review` | After every feature | Dispatched to `@reviewer` — diff-scoped, reports, never fixes |
 | `/debug` | When something breaks | Diagnose the failure type before attempting a fix, reproduce before theorizing, hand confirmed fixes to `/test` |
 | `/test` | Automatically once tests are established (`code-standards.md`), before review; automatically after `/debug`; anytime on request | Write and run tests for the change just made — a skill, not a gate |
 | `/document` | Offered at close-out; anytime on request | Draft a changelog entry, PR description, or release note from what actually happened |
@@ -100,6 +100,18 @@ Across a full feature cycle, you make four calls: approve the `/architect` plan,
 Skills live in `skills/` in this repo and get copied into every scaffolded project's `.opencode/skills/`. Most are a fork of [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills), edited to match this workflow — edit them here, not upstream. `ui-ux-frontend`, `debug`, `test`, and `document` are original to this repo. `ui-ux-frontend` is a trimmed, dependency-free reference (no CLI, no database, no persistence of its own) drawing on WCAG/HIG/Material Design guidance and general UI/UX distinctiveness principles — deliberately kept out of the business of owning state, since `ui-tokens.md` / `ui-rules.md` / `ui-registry.md` already do that job.
 
 Writing or editing a skill? See `docs/conventions.md` for the house style, and run `npm run check` — an advisory lint for frontmatter, line-count budget, and filler phrases.
+
+## Review cost
+
+The reviewer inherits your primary model by default and is capped at 15 agent steps — each step can include several tool calls, so 15 is roomy for a diff-scoped pass. If reviews are slow or expensive, set `agent.reviewer.model` in `opencode.json` to a faster model, and raise `agent.reviewer.steps` only when a project genuinely needs deeper reviews.
+
+```json
+"agent": {
+  "reviewer": {
+    "model": "provider/fast-model"
+  }
+}
+```
 
 ## Scaffold options
 

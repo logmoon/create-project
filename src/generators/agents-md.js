@@ -11,7 +11,7 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
     '| `context-gather` | First session, automatically | Fills context files before anything else can run |',
     has('architect') ? '| `/architect` | Before building any feature | Think through decisions before touching code |' : null,
     has('remember')  ? '| `/remember save` | End of every session | Compress session state into memory.md |\n| `/remember restore` | Start of a session, on demand | Full restore + confirmation — the auto-restore hook covers the common case |' : null,
-    has('review')    ? '| `/review` | After building any feature | Dispatched to `@reviewer` — a read-only subagent that verifies correctness, not just that it works |' : null,
+    has('review')    ? '| `/review` | After building any feature | Dispatched to `@reviewer` — a diff-scoped, read-only subagent that verifies correctness, not just that it works |' : null,
     has('debug')     ? '| `/debug` | When something breaks | Diagnose failure mode before attempting fixes; hands a confirmed fix to `/test` for a regression test |' : null,
     has('test')      ? '| `/test` | Automatically once code-standards.md establishes this project uses tests — during building, before Review; automatically at the end of `/debug`; anytime on request | Write and run tests for the change just made. Not a gate — a normal part of doing the work |' : null,
     has('document')  ? '| `/document` | Offered at close-out; anytime on request | Draft a changelog entry, PR description, or release note from the plan, diff, and review findings |' : null,
@@ -38,7 +38,9 @@ export function generateAgentsMd(projectName, hasUI, selectedSkills, useContext7
     '| **Session-Scope Gate** | Whenever a new feature is requested | The current feature has passed the Close-out Gate, or the developer\'s said to keep going anyway |',
   ].filter(Boolean).join('\n');
 
-  const sessionGatesSection = `## Session Gates
+  const sessionGatesSection = `**If you are a subagent** (e.g. \`@reviewer\`), this section does not apply. Follow your subagent prompt, report, and return — you have no developer to ask and must never wait for confirmation.
+
+## Session Gates
 
 A gate is a point in this protocol where work must stop until the developer gives an explicit
 answer to the specific question the agent asked — not any affirmative reply to a nearby question.
@@ -91,8 +93,8 @@ a plan-shaped answer produced outside the named skill's own procedure.`;
     buildingSteps.push(`${buildNum++}. If \`context/code-standards.md\` establishes that this project uses tests, reach for \`/test\` now — write and run tests for what was just built, before moving to review. This isn't a gate; use your judgment, but skipping it should be a deliberate call, not an oversight.`);
   }
   if (has('review')) {
-    buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config, can't edit/write/bash) with the plan, the relevant context files, the diff, and test results if \`/test\` ran. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
-    buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for and re-run \`/review\` as needed. Repeat until the user explicitly says they are satisfied.`);
+    buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config: no edit/write, bash limited to read-only git) with a compact brief: the feature goal and the plan's decisions, the diff range and changed files (including untracked), risk flags, and test results if \`/test\` ran. Don't paste context files, full source files, or the whole diff — the reviewer has them in scope and reads what it needs. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
+    buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for. After a fix, re-review the new diff only; run a full feature review again only if the fix changes architecture, data flow, or another invariant. Repeat until the user explicitly says they are satisfied.`);
   }
   // Close-out prompt — agent asks before proceeding
   buildingSteps.push(`${buildNum++}. **Close-out Gate** — when the user confirms they are satisfied, prompt them: "Ready to close out the session? I'll commit the work, run${hasUI && has('imprint') ? ' /imprint,' : ''} /remember save,${has('document') ? ' draft a /document entry if useful,' : ''} and propose distill if anything's worth keeping." Wait for their confirmation before proceeding.`);

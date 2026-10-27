@@ -1,11 +1,11 @@
 ---
 name: review
-description: After building a feature, verify it matches what was planned, respects the system architecture and design standards, and is ready for production. Reports issues clearly so the developer decides what to fix.
+description: After building a feature, verify it matches what was planned, respects the system architecture and design standards, and is ready for production. Reviews the diff and reports issues clearly so the developer decides what to fix.
 ---
 
 ## Hard rule
 
-Reviewing is reporting. Never fix what you find. If you want to fix something, report it, stop, and wait to be asked.
+Reviewing is reporting. Never fix what you find. If you want to fix something, report it and stop — the primary session waits to be asked; the reviewer never waits.
 
 ---
 
@@ -17,19 +17,31 @@ Run this after every feature. Before you move on.
 
 ## Run With Fresh Eyes
 
-Do not review in the same session that built the feature — the session that just wrote the code is biased toward believing it is correct, and its context is already full of its own reasoning. Dispatch this project's `reviewer` subagent (defined in `opencode.json`, read-only — it cannot edit, write, or run bash, so it structurally cannot "fix while reviewing"). Invoke with `@reviewer`. Hand it only:
+Do not review in the same session that built the feature — the session that just wrote the code is biased toward believing it is correct, and its context is already full of its own reasoning. Dispatch this project's `reviewer` subagent (defined in `opencode.json`; it cannot edit or write, and its bash access is a read-only git allowlist). Invoke with `@reviewer`.
 
-- The implementation plan from `/architect`, if one exists
-- The relevant context files (architecture, code standards, design rules)
-- The diff or files changed for this feature
+The reviewer already has every context file in its instructions and can read the repo. Hand it a compact brief, not a copy of the codebase:
 
-The primary session waits for the subagent's report and relays it — it does not review its own work.
+- **Goal and plan decisions** — a short summary of what was planned, the key decisions, and acceptance criteria. Not the full plan transcript.
+- **Diff range and changed files** — e.g. `git diff main...HEAD`, or `git diff` for uncommitted work. Include untracked files.
+- **Risk flags and test result** — note if the change touches auth, payments, migrations, permissions, or has non-obvious control flow; include the test command/result if `/test` ran.
+
+Do not paste context files, full source files, or the whole diff — the reviewer reads what it needs.
+
+After a fix, send only the new diff. Re-run the full feature review only if the fix changes architecture, data flow, or another invariant.
+
+The primary session waits for the subagent's report and relays it — it does not review its own work. The reviewer reports and returns; it never asks a question or waits for the developer.
+
+## Scope
+
+Review the diff, not the repository. A review that tours unrelated files costs time and finds noise. Start with `git status` and `git diff --stat`, read the full diff, then read only the changed files and the specific sections they depend on.
+
+Stop once every changed hunk is accounted for. If the diff is empty, there is nothing to review.
 
 ## Depth
 
-One focused pass, not a review of your own review. Depth is earned by the diff, not a mode switch: work the three layers at the level the change warrants. A small, mechanical, low-risk feature can pass each layer quickly; go deeper without being asked where a mistake is expensive (auth, payments, migrations, permissions), where a judgment is uncertain, or where the change is large or has non-obvious control flow. Where you're unsure, verify against the actual code rather than reporting a hedge as a finding.
+Depth is earned by the diff. A small, mechanical change gets a quick pass; go deeper where a mistake is expensive (auth, payments, migrations, permissions), where a judgment is uncertain, or where the diff is large or has non-obvious control flow. Verify uncertain claims against the code; don't report a hedge as a finding.
 
-Do not manufacture issues or re-run layers to look thorough — a clean feature gets a clean report.
+Do not re-run layers or manufacture issues to look thorough — a clean diff gets a clean report.
 
 ## What This Skill Does Not Do
 
@@ -39,21 +51,21 @@ It does not fix anything. It reports what it finds and lets the developer decide
 
 ## Step 1 — Understand What Should Have Been Built
 
-Before reviewing anything, establish the benchmark.
+Establish the benchmark from the brief:
 
-Read in this order:
+- The plan's goal, decisions, and acceptance criteria
+- The feature description or task
+- The relevant rules in the context files — architecture boundaries, code standards, design rules
 
-- The implementation plan from `/architect` if one exists
-- The feature description or task that was given
-- Any relevant context files — architecture boundaries, code standards, design rules
-
-If no plan exists, ask the developer to describe what the feature was supposed to do before reviewing. You cannot verify correctness without knowing what correct looks like.
+If the brief is missing the goal, the primary asks the developer before dispatching. The reviewer reports the missing context as a blocker instead of waiting for an answer.
 
 ---
 
-## Step 2 — Review in Three Layers
+## Step 2 — Review the Diff in Three Layers
 
-### Layer 1 — Does it match the plan?
+Work the three layers against the diff. If a layer has nothing to check because the diff doesn't touch it, mark it PASS and move on — don't go looking for something to fill it.
+
+### Layer 1 — Does the diff match the plan?
 
 Compare what was built against what was planned.
 
@@ -65,7 +77,7 @@ Check:
 
 Flag anything that was planned but missing. Flag anything that was built but not planned.
 
-### Layer 2 — Does it respect the system?
+### Layer 2 — Does the diff respect the system?
 
 This is where AI drift most commonly happens. The feature works, but it violates rules that the project depends on.
 
@@ -76,21 +88,30 @@ Check:
 - **Code standards** — naming conventions, file organisation, TypeScript strictness, error handling patterns — do they match what the project established?
 - **Existing patterns** — does this feature introduce a new pattern when an existing one should have been used?
 
-### Layer 3 — Is it production ready?
+### Layer 3 — Is the diff production ready?
 
 Check:
 
 - Error handling — what happens when things go wrong? Are errors caught and handled or does the feature silently fail?
 - Edge cases — empty states, loading states, missing data — are these handled?
-- Console errors — any errors or warnings in the browser or terminal?
 - Obvious bugs — anything that would clearly break for a real user?
 - Tests — if `context/code-standards.md` establishes this project uses tests, were they written for this change, and do they pass? Report the gap if `/test` was skipped, without fixing it yourself.
+
+The reviewer cannot run the app or the test suite — report only what the code shows, not speculation about runtime behaviour.
 
 ---
 
 ## Step 3 — Report What You Found
 
 After completing all three layers, produce a clear report. Do not bury issues. Do not soften them. Report honestly so the developer can make informed decisions.
+
+For a clean diff, one line is enough:
+
+```
+No issues found — [feature] is ready to ship.
+```
+
+For issues:
 
 ```
 ## Review — [Feature Name]
@@ -110,13 +131,16 @@ After completing all three layers, produce a clear report. Do not bury issues. D
 ### Summary
 [X] issues found across [Y] layers.
 
-[If no issues: "No issues found. This feature is ready to ship."]
-[If issues: "Resolve the above before moving to the next feature."]
+Resolve the above before moving to the next feature.
 ```
+
+Don't expand empty layers to look thorough.
 
 ---
 
 ## Step 4 — Let the Developer Decide
+
+This step belongs to the primary session. The reviewer returns its report immediately.
 
 After presenting the report, stop. Do not start fixing. Do not suggest fixes unless the developer asks.
 
