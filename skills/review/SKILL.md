@@ -27,7 +27,7 @@ The reviewer already has every context file in its instructions and can read the
 
 Do not paste context files, full source files, or the whole diff — the reviewer reads what it needs.
 
-After a fix, send only the new diff. Re-run the full feature review only if the fix changes architecture, data flow, or another invariant.
+After a fix, judge confidence before re-reviewing. A small, local fix verified by tests or a build/typecheck, touching no architecture, data flow, or invariant, does not need a second review — report what changed and what verified it. Otherwise send only the new diff for one re-review; run a full feature review only if the fix changes architecture, data flow, or another invariant. The loop is capped at two review rounds: if the re-review still finds issues, report them and stop. No third round unless the developer explicitly asks for one.
 
 The primary session waits for the subagent's report and relays it — it does not review its own work. The reviewer reports and returns; it never asks a question or waits for the developer.
 
@@ -148,7 +148,9 @@ Wait for the developer to:
 
 - Ask you to fix a specific issue
 - Tell you an issue is intentional and can be ignored
-- Confirm everything is resolved and ready to move on
+- Confirm the remaining findings are acceptable and the feature is ready to move on
+
+When they ask for fixes, fix only those and stop at the two-round cap above — the goal is an informed developer, not a clean report at any cost.
 
 The developer owns the quality decision. You inform it.
 

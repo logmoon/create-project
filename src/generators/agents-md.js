@@ -94,7 +94,7 @@ a plan-shaped answer produced outside the named skill's own procedure.`;
   }
   if (has('review')) {
     buildingSteps.push(`${buildNum++}. **Review Gate** — dispatch \`@reviewer\` (read-only by config: no edit/write, bash limited to read-only git) with a compact brief: the feature goal and the plan's decisions, the diff range and changed files (including untracked), risk flags, and test results if \`/test\` ran. Don't paste context files, full source files, or the whole diff — the reviewer has them in scope and reads what it needs. Do not review your own work in the same session that built it. Report findings and stop — never fix what you find. This gate does not pass on a clean build; it passes only once the developer says the feature is satisfactory.`);
-    buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for. After a fix, re-review the new diff only; run a full feature review again only if the fix changes architecture, data flow, or another invariant. Repeat until the user explicitly says they are satisfied.`);
+    buildingSteps.push(`${buildNum++}. Wait for the user to test and confirm. The user may report issues or request fixes — make only what they ask for. Before re-reviewing, judge confidence: if the fix is small, local, verified by tests or a build/typecheck, and touches no architecture, data flow, or invariant, skip the re-review and report what changed plus what verified it. Otherwise dispatch one re-review of the new diff only; run a full feature review again only if the fix changes architecture, data flow, or another invariant. The loop is capped at two review rounds per feature — if the re-review still finds issues, report them and stop. No third round unless the developer explicitly asks for one. Never re-dispatch the reviewer just to confirm a clean result.`);
   }
   // Close-out prompt — agent asks before proceeding
   buildingSteps.push(`${buildNum++}. **Close-out Gate** — when the user confirms they are satisfied, prompt them: "Ready to close out the session? I'll commit the work, run${hasUI && has('imprint') ? ' /imprint,' : ''} /remember save,${has('document') ? ' draft a /document entry if useful,' : ''} and propose distill if anything's worth keeping." Wait for their confirmation before proceeding.`);
@@ -135,12 +135,12 @@ ${has('review') || has('remember') || has('test') ? `
 ### Definition of Done
 
 A feature is only done when:
-${has('review') ? '- `/review` has run via a fresh subagent, all issues are resolved, and the **user has explicitly confirmed they are satisfied**' : ''}
+${has('review') ? '- `/review` has run via a fresh subagent, findings are relayed, remaining issues are fixed or explicitly accepted, and the **user has explicitly confirmed they are satisfied**' : ''}
 ${has('test') ? '- Tests have been written and pass, if `context/code-standards.md` establishes this project uses them' : ''}
 ${has('remember') ? '- `/remember save` has run' : ''}
 - \`context/progress-tracker.md\` reflects current state
 
-After building, run \`/review\` and **stop** — report findings, never fix. Wait for the user to test and direct you. Do not close out until the user explicitly confirms they are satisfied. When they do, prompt before running close-out steps.` : ''}`;
+After building, run \`/review\` and **stop** — report findings, never fix. Wait for the user to test and direct you. Fix only what they ask for, then re-review at most once and only when confidence is low — never chase a clean report. Do not close out until the user explicitly confirms they are satisfied. When they do, prompt before running close-out steps.` : ''}`;
 
   return `# AGENTS.md — ${projectName}
 

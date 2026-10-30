@@ -68,9 +68,9 @@ The first time you open the project, every `context/*.md` file is still a placeh
 
 6. **`/test` (if this project uses tests).** Once `code-standards.md` establishes that, the agent reaches for `/test` on its own before review — no confirmation needed, it's a skill, not a gate.
 
-7. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window, no edit/write tools, and bash limited to read-only git (`git status`, `git diff`, `git log`, `git show`) so it reviews the diff instead of touring the repo. The primary hands it a compact brief (goal, plan decisions, diff range, test result), not a copy of the context files. It reports findings and **stops**. After a fix, it re-reviews only the new diff. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
+7. **`/review`.** Automatically dispatched to `@reviewer` — a fresh subagent with a clean context window, no edit/write tools, and bash limited to read-only git (`git status`, `git diff`, `git log`, `git show`) so it reviews the diff instead of touring the repo. The primary hands it a compact brief (goal, plan decisions, diff range, test result), not a copy of the context files. It reports findings and **stops**. After a fix, it re-reviews only when confidence is low — a small, verified fix skips the second pass. The loop is capped at two review rounds; any remaining findings are reported to you, not chased. The session that wrote the code is the worst judge of whether it's correct, so it never reviews its own work.
 
-8. **You test.** You try the feature. Report issues, request fixes, re-run `/review` as needed. The agent fixes only what you ask for. Repeat until you're satisfied.
+8. **You test.** You try the feature. Report issues and request fixes. The agent fixes only what you ask for, re-reviews at most once, and stops — you decide whether the remaining findings matter. Repeat until you're satisfied; after the second round, further re-reviews happen only when you explicitly ask.
 
 9. **Close-out prompt.** When you say "good" / "done" / "I'm satisfied", the agent asks: *"Ready to close out? I'll commit the work, run /imprint, /remember save, draft a /document entry if useful, and propose distill."* You confirm before anything happens.
 
@@ -103,7 +103,7 @@ Writing or editing a skill? See `docs/conventions.md` for the house style, and r
 
 ## Review cost
 
-The reviewer inherits your primary model by default and is capped at 15 agent steps — each step can include several tool calls, so 15 is roomy for a diff-scoped pass. If reviews are slow or expensive, set `agent.reviewer.model` in `opencode.json` to a faster model, and raise `agent.reviewer.steps` only when a project genuinely needs deeper reviews.
+The reviewer inherits your primary model by default and is capped at 20 agent steps — each step can include several tool calls, so 20 is roomy for a diff-scoped pass. Its prompt states the cap and tells it how to budget the pass and report honestly if it nears the limit. If reviews are slow or expensive, set `agent.reviewer.model` in `opencode.json` to a faster model, and raise `agent.reviewer.steps` only when a project genuinely needs deeper reviews.
 
 ```json
 "agent": {
